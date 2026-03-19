@@ -1,13 +1,24 @@
 package monitor
 
 import (
-	"url-monitor/internal/storage/postgres"
+	"context"
 )
 
-type Service struct {
-	repo *postgres.Repository
+type Repository interface {
+	Create(ctx context.Context, monitor Monitor) (Monitor, error)
 }
 
-func NewMonitorService(repo *postgres.Repository) *Service {
+type Service struct {
+	repo Repository
+}
+
+type CreateMonitorInput struct {
+	URL     		string
+	IntervalSeconds int
+}
+
+func NewMonitorService(repo Repository) *Service {
 	return &Service{repo: repo}
 }
+
+func (s *Service) CreateMonitor(ctx context.Context, input CreateMonitorInput) (Monitor, error)
