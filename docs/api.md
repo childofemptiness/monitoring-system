@@ -29,7 +29,7 @@ Status: ```201 Created```
 }
 ```
 **Error responses**
-- ```Bad Request``` if JSON is invalid or fields are invalid
+- ```400 Bad Request``` if JSON is invalid or fields are invalid
 - ```409 Conflict``` if a monitor with the same URL already exists
 - ```500 Internal Server Error```  for unexpeceted internal errors
 
