@@ -44,7 +44,39 @@ func (r *Repository) Create(ctx context.Context, m monitor.Monitor) (monitor.Mon
 	return created, nil
 }
 
-func (r *Repository) List(ctx context.Context) ([]monitor.Monitor, error)
+func (r *Repository) List(ctx context.Context) ([]monitor.Monitor, error) {
+	query := `
+		SELECT id, url, interval_seconds 
+		FROM monitors
+		ORDER BY id ASC
+	`
+
+	rows, err := r.pool.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	monitors := make([]monitor.Monitor, 0)
+	for rows.Next() {
+		var m monitor.Monitor
+		if err := rows.Scan(
+			&m.ID,
+			&m.URL,
+			&m.IntervalSeconds,
+		); err != nil {
+			return nil, err
+		}
+
+		monitors = append(monitors, m)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return monitors, nil
+}
 
 func isUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError

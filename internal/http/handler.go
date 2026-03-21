@@ -23,6 +23,21 @@ type CreateMonitorResponse struct {
 	IntervalSeconds int
 }
 
+type MonitorItem struct {
+	ID        		int64  `json:"id"`
+	URL       		string `json:"url"`
+	IntervalSeconds int    `json:"interval_seconds"`
+}
+
+type ListMonitorsMeta struct {
+	Total int `json:"total"`
+}
+
+type ListMonitorsResponse struct {
+	Data   []MonitorItem    `json:"data"`
+	Meta   ListMonitorsMeta `json:"meta"` 
+}
+
 func NewHandler(service *monitor.Service) *Handler {
 	return &Handler{service: service}
 }
@@ -31,10 +46,6 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{
 		"status": "ok",
 	})
-}
-
-func (h *Handler) ListMonitors(w http.ResponseWriter, r *http.Request) {
-	//
 }
 
 func (h *Handler) CreateMonitor(w http.ResponseWriter, r *http.Request) {
@@ -62,6 +73,30 @@ func (h *Handler) CreateMonitor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusCreated, response)
+}
+
+func (h *Handler) ListMonitors(w http.ResponseWriter, r *http.Request) {
+	monitors, err := h.service.ListMonitors(r.Context())
+	if err != nil {
+		writeError(w, statusFromError(err), err.Error())
+		return
+	}
+
+	items := make([]MonitorItem, 0, len(monitors))
+	for _, m := range monitors {
+		items = append(items, MonitorItem{
+			ID: m.ID,
+			URL: m.URL,
+			IntervalSeconds: m.IntervalSeconds,
+		})
+	}
+
+	writeJSON(w, http.StatusOK, ListMonitorsResponse{
+		Data: items,
+		Meta: ListMonitorsMeta{
+			Total: len(monitors),
+		},
+	})
 }
 
 func writeJSON(w http.ResponseWriter, status int, data any) {

@@ -46,7 +46,14 @@ func (s *Service) CreateMonitor(ctx context.Context, input CreateMonitorInput) (
 	return created, nil
 }
 
-func (s *Service) ListMonitors(ctx context.Context) ([]Monitor, error)
+func (s *Service) ListMonitors(ctx context.Context) ([]Monitor, error) {
+	monitors, err := s.repo.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return monitors, nil
+}
 
 func (s *Service) validateURL(raw string) bool {
 	raw = strings.TrimSpace(raw)
