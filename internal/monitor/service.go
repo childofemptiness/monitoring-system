@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/url"
 	"strings"
+	"time"
 )
 
 type MonitorRepository interface {
@@ -16,7 +17,7 @@ type Service struct {
 }
 
 type CreateMonitorInput struct {
-	URL     		string
+	URL             string
 	IntervalSeconds int
 }
 
@@ -33,9 +34,12 @@ func (s *Service) CreateMonitor(ctx context.Context, input CreateMonitorInput) (
 		return Monitor{}, ErrInvalidInterval
 	}
 
+	nextCheckAt := time.Now().Add(time.Duration(input.IntervalSeconds) * time.Second)
+
 	monitor := Monitor{
-		URL: input.URL,
+		URL:             input.URL,
 		IntervalSeconds: input.IntervalSeconds,
+		NextCheckAt:     &nextCheckAt,
 	}
 
 	created, err := s.repo.Create(ctx, monitor)

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"url-monitor/internal/monitor"
 )
@@ -13,20 +14,28 @@ type Handler struct {
 }
 
 type CreateMonitorRequest struct {
-	URL 			string `json:"url"`
+	URL             string `json:"url"`
 	IntervalSeconds int    `json:"interval_seconds"`
 }
 
 type CreateMonitorResponse struct {
-	ID 				int64
-	URL 			string
+	ID              int64
+	URL             string
 	IntervalSeconds int
+	CreatedAt       time.Time
+	UpdatedAt       *time.Time
+	LastCheckAt     *time.Time
+	NextCheckAt     *time.Time
 }
 
 type MonitorItem struct {
-	ID        		int64  `json:"id"`
-	URL       		string `json:"url"`
-	IntervalSeconds int    `json:"interval_seconds"`
+	ID              int64      `json:"id"`
+	URL             string     `json:"url"`
+	IntervalSeconds int        `json:"interval_seconds"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       *time.Time `json:"updated_at"`
+	LastCheckAt     *time.Time `json:"last_check_at"`
+	NextCheckAt     *time.Time `json:"next_check_at"`
 }
 
 type ListMonitorsMeta struct {
@@ -34,8 +43,8 @@ type ListMonitorsMeta struct {
 }
 
 type ListMonitorsResponse struct {
-	Data   []MonitorItem    `json:"data"`
-	Meta   ListMonitorsMeta `json:"meta"` 
+	Data []MonitorItem    `json:"data"`
+	Meta ListMonitorsMeta `json:"meta"`
 }
 
 func NewHandler(service *monitor.Service) *Handler {
@@ -56,7 +65,7 @@ func (h *Handler) CreateMonitor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	input := monitor.CreateMonitorInput{
-		URL: req.URL,
+		URL:             req.URL,
 		IntervalSeconds: req.IntervalSeconds,
 	}
 
@@ -67,9 +76,13 @@ func (h *Handler) CreateMonitor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := CreateMonitorResponse{
-		ID: created.ID,
-		URL: created.URL,
+		ID:              created.ID,
+		URL:             created.URL,
 		IntervalSeconds: created.IntervalSeconds,
+		CreatedAt:       created.CreatedAt,
+		UpdatedAt:       created.UpdatedAt,
+		LastCheckAt:     created.LastCheckAt,
+		NextCheckAt:     created.NextCheckAt,
 	}
 
 	writeJSON(w, http.StatusCreated, response)
@@ -85,9 +98,13 @@ func (h *Handler) ListMonitors(w http.ResponseWriter, r *http.Request) {
 	items := make([]MonitorItem, 0, len(monitors))
 	for _, m := range monitors {
 		items = append(items, MonitorItem{
-			ID: m.ID,
-			URL: m.URL,
+			ID:              m.ID,
+			URL:             m.URL,
 			IntervalSeconds: m.IntervalSeconds,
+			CreatedAt:       m.CreatedAt,
+			UpdatedAt:       m.UpdatedAt,
+			LastCheckAt:     m.LastCheckAt,
+			NextCheckAt:     m.NextCheckAt,
 		})
 	}
 
