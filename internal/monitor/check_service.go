@@ -13,6 +13,6 @@ type CheckService struct {
 	repo MonitorCheckRepository
 }
 
-func (c *CheckService) SaveCheckResult(ctx context.Context, check MonitorCheck) error {
-	return nil
+func (c *CheckService) SaveCheckResult(ctx context.Context, check MonitorCheck, nextCheckAt time.Time) error {
+	return c.repo.CompleteCheck(ctx, check, nextCheckAt)
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 	"url-monitor/internal/monitor"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -83,6 +84,73 @@ func (r *Repository) ListDue(ctx context.Context, now time.Time, limit int) ([]m
 	`
 
 	return r.executeQuery(ctx, query, now, limit)
+}
+
+func (r *Repository) CompleteCheck(ctx context.Context, check monitor.MonitorCheck, nextCheckAt time.Time) error {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	query := `
+		INSERT INTO monitor_checks (
+		                            monitor_id, 
+		                            status, 
+		                            http_status_code, 
+		                            error_message, 
+		                            response_time_ms, 
+		                            started_at, 
+		                            finished_at
+		                            )
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING 
+			id, 
+			monitor_id, 
+			status, 
+			http_status_code, 
+			error_message, 
+			response_time_ms, 
+			started_at, 
+			finished_at
+	`
+
+	_, err = tx.Exec(ctx, query,
+		check.MonitorID,
+		check.Status,
+		check.HTTPStatusCode,
+		check.ErrorMessage,
+		check.ResponseTimeMS,
+		check.StartedAt,
+		check.FinishedAt,
+	)
+	if err != nil {
+		return err
+	}
+
+	query = `
+		UPDATE monitors
+		SET last_check_at = $2,
+		    next_check_at = $3
+		WHERE id = $1
+	`
+
+	_, err = tx.Exec(ctx, query,
+		check.MonitorID,
+		check.FinishedAt,
+		nextCheckAt,
+	)
+	if err != nil {
+		return err
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (r *Repository) executeQuery(ctx context.Context, query string, args ...any) ([]monitor.Monitor, error) {
