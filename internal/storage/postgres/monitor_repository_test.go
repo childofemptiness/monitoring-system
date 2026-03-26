@@ -271,10 +271,8 @@ func TestRepository_CompleteCheckNonExistentMonitorIDInsertError(t *testing.T) {
 	duration := time.Duration(responseTimeMS) * time.Millisecond
 	startedAt := finishedAt.Add(-duration).Truncate(time.Microsecond)
 
-	monitorID := int64(111)
-
 	check := monitor.MonitorCheck{
-		MonitorID:      monitorID,
+		MonitorID:      int64(111),
 		Status:         monitor.MonitorCheckStatusUp,
 		HTTPStatusCode: http.StatusOK,
 		ErrorMessage:   "",
@@ -284,24 +282,8 @@ func TestRepository_CompleteCheckNonExistentMonitorIDInsertError(t *testing.T) {
 	}
 
 	err := repo.CompleteCheck(context.Background(), check, nextCheckAt)
-	if err == nil {
-		t.Fatal("expected non-existent monitor id insert error")
-	}
-
-	query := `
-		SELECT
-			COUNT(*)
-		FROM monitor_checks
-		WHERE monitor_id = $1
-   `
-	var count int64
-	err = pool.QueryRow(context.Background(), query, monitorID).Scan(&count)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if count != 0 {
-		t.Fatalf("expected monitor check count to be 0, got %d", count)
+	if !errors.Is(err, monitor.ErrMonitorNotFound) {
+		t.Errorf("expected ErrMonitorNotFound error, got %v", err)
 	}
 }
 

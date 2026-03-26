@@ -5,12 +5,16 @@ import (
 	"time"
 )
 
-type MonitorCheckRepository interface {
+type CheckRepository interface {
 	CompleteCheck(ctx context.Context, check MonitorCheck, nextCheckAt time.Time) error
 }
 
 type CheckService struct {
-	repo MonitorCheckRepository
+	repo CheckRepository
+}
+
+func NewCheckService(repo CheckRepository) *CheckService {
+	return &CheckService{repo: repo}
 }
 
 func (c *CheckService) SaveCheckResult(ctx context.Context, check MonitorCheck, nextCheckAt time.Time) error {

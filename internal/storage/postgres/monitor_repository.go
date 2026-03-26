@@ -127,6 +127,10 @@ func (r *Repository) CompleteCheck(ctx context.Context, check monitor.MonitorChe
 		check.FinishedAt,
 	)
 	if err != nil {
+		if isForeignKeyViolation(err) {
+			return monitor.ErrMonitorNotFound
+		}
+
 		return err
 	}
 
@@ -189,6 +193,15 @@ func isUniqueViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
 		return pgErr.Code == "23505"
+	}
+
+	return false
+}
+
+func isForeignKeyViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23503"
 	}
 
 	return false
