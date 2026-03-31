@@ -7,6 +7,9 @@ import (
 	"reflect"
 	"testing"
 	"time"
+	"url-monitor/internal/metrics"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type fakeChecker struct {
@@ -41,7 +44,8 @@ func (fcs *fakeCheckService) SaveCheckResult(ctx context.Context, check MonitorC
 func TestCheckProcessor_Process_Success(t *testing.T) {
 	checker := &fakeChecker{}
 	checkService := &fakeCheckService{}
-	checkProcessor := NewCheckProcessor(checker, checkService)
+	reg := prometheus.NewRegistry()
+	checkProcessor := NewCheckProcessor(checker, checkService, metrics.NewMetrics(reg))
 
 	ctx := context.Background()
 	monitor, _ := newTestData()
@@ -76,7 +80,8 @@ func TestCheckProcessor_Process_Success(t *testing.T) {
 func TestCheckProcessor_Process_SaveCheckResultError(t *testing.T) {
 	checker := &fakeChecker{}
 	checkService := &fakeCheckService{}
-	checkProcessor := NewCheckProcessor(checker, checkService)
+	reg := prometheus.NewRegistry()
+	checkProcessor := NewCheckProcessor(checker, checkService, metrics.NewMetrics(reg))
 
 	checkService.savedErr = ErrMonitorNotFound
 

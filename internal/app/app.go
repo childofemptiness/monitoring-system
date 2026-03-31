@@ -7,10 +7,12 @@ import (
 	"time"
 	"url-monitor/internal/config"
 	apphttp "url-monitor/internal/http"
+	"url-monitor/internal/metrics"
 	"url-monitor/internal/monitor"
 	"url-monitor/internal/storage/postgres"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type App struct {
@@ -31,14 +33,16 @@ func New(
 		return nil, err
 	}
 
+	m := metrics.NewMetrics(prometheus.DefaultRegisterer)
+
 	repo := postgres.NewMonitorRepository(pool)
 	monitorService := monitor.NewMonitorService(repo)
 	checkService := monitor.NewCheckStoreService(repo)
 	checker := &monitor.CheckRunner{}
-	processor := monitor.NewCheckProcessor(checker, checkService)
-	workerPool := monitor.NewWorkerPool(processor, cfg.MonitorCheckWorkersCount, cfg.MonitorCheckQueueSize)
+	processor := monitor.NewCheckProcessor(checker, checkService, m)
+	workerPool := monitor.NewWorkerPool(processor, cfg.MonitorCheckWorkersCount, cfg.MonitorCheckQueueSize, m)
 	scheduler := monitor.NewScheduler(repo, workerPool, time.Duration(cfg.SchedulerTimeInterval)*time.Second)
-	handler := apphttp.NewHandler(monitorService)
+	handler := apphttp.NewHandler(monitorService, m)
 	router := apphttp.NewRouter(handler)
 
 	server := &http.Server{

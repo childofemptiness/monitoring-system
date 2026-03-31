@@ -2,8 +2,8 @@ package monitor
 
 import (
 	"context"
-	"log"
 	"time"
+	"url-monitor/internal/metrics"
 )
 
 type Checker interface {
@@ -15,19 +15,29 @@ type CheckService interface {
 type CheckProcessor struct {
 	checker      Checker
 	checkService CheckService
+	metrics      *metrics.Metrics
 }
 
-func NewCheckProcessor(checker Checker, checkService CheckService) *CheckProcessor {
+func NewCheckProcessor(checker Checker, checkService CheckService, metrics *metrics.Metrics) *CheckProcessor {
 	return &CheckProcessor{
 		checker:      checker,
 		checkService: checkService,
+		metrics:      metrics,
 	}
 }
 
 func (cp *CheckProcessor) Process(ctx context.Context, monitor Monitor) error {
-	log.Printf("process check for monitor m: %+v\n", monitor)
+	cp.metrics.IncInflight()
+	defer cp.metrics.DecInflight()
+
 	check := cp.checker.Check(ctx, monitor)
 	nextCheckAt := check.FinishedAt.Add(time.Duration(monitor.IntervalSeconds) * time.Second)
+
+	if check.ErrorMessage != "" {
+		cp.metrics.IncRequestErrors(check.ErrorMessage)
+	}
+
+	cp.metrics.ObserveCheck(string(check.Status), time.Duration(check.ResponseTimeMS)*time.Millisecond)
 
 	err := cp.checkService.SaveCheckResult(ctx, check, nextCheckAt)
 	if err != nil {

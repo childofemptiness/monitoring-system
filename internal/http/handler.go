@@ -5,12 +5,14 @@ import (
 	"errors"
 	"net/http"
 	"time"
+	"url-monitor/internal/metrics"
 
 	"url-monitor/internal/monitor"
 )
 
 type Handler struct {
 	service *monitor.Service
+	metrics *metrics.Metrics
 }
 
 type CreateMonitorRequest struct {
@@ -47,8 +49,11 @@ type ListMonitorsResponse struct {
 	Meta ListMonitorsMeta `json:"meta"`
 }
 
-func NewHandler(service *monitor.Service) *Handler {
-	return &Handler{service: service}
+func NewHandler(service *monitor.Service, metrics *metrics.Metrics) *Handler {
+	return &Handler{
+		service: service,
+		metrics: metrics,
+	}
 }
 
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
