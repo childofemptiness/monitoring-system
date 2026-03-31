@@ -1,4 +1,4 @@
-package monitor
+package check
 
 import (
 	"context"
@@ -11,11 +11,12 @@ import (
 	"os"
 	"syscall"
 	"time"
+	"url-monitor/internal/monitor"
 )
 
 type CheckRunner struct{}
 
-func (c *CheckRunner) Check(ctx context.Context, m Monitor) MonitorCheck {
+func (c *CheckRunner) Check(ctx context.Context, m monitor.Monitor) monitor.MonitorCheck {
 	client := &http.Client{
 		Timeout: time.Duration(m.IntervalSeconds/2) * time.Second,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -23,14 +24,14 @@ func (c *CheckRunner) Check(ctx context.Context, m Monitor) MonitorCheck {
 		},
 	}
 
-	check := MonitorCheck{
+	check := monitor.MonitorCheck{
 		MonitorID: m.ID,
 		StartedAt: time.Now(),
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, m.URL, nil)
 	if err != nil {
-		check.Status = MonitorCheckStatusError
+		check.Status = monitor.MonitorCheckStatusError
 		check.ErrorMessage = err.Error()
 		check.FinishedAt = time.Now()
 		check.ResponseTimeMS = check.FinishedAt.Sub(check.StartedAt).Milliseconds()
@@ -39,7 +40,7 @@ func (c *CheckRunner) Check(ctx context.Context, m Monitor) MonitorCheck {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		check.Status = MonitorCheckStatusError
+		check.Status = monitor.MonitorCheckStatusError
 		check.ErrorKind = c.classifyCheckErrorKind(err)
 		check.ErrorMessage = err.Error()
 		check.FinishedAt = time.Now()
@@ -54,9 +55,9 @@ func (c *CheckRunner) Check(ctx context.Context, m Monitor) MonitorCheck {
 	check.ResponseTimeMS = check.FinishedAt.Sub(check.StartedAt).Milliseconds()
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		check.Status = MonitorCheckStatusUp
+		check.Status = monitor.MonitorCheckStatusUp
 	} else {
-		check.Status = MonitorCheckStatusDown
+		check.Status = monitor.MonitorCheckStatusDown
 	}
 
 	check.HTTPStatusCode = int16(resp.StatusCode)
@@ -64,7 +65,7 @@ func (c *CheckRunner) Check(ctx context.Context, m Monitor) MonitorCheck {
 	return check
 }
 
-func (c *CheckRunner) classifyCheckErrorKind(err error) CheckErrorKind {
+func (c *CheckRunner) classifyCheckErrorKind(err error) monitor.CheckErrorKind {
 	var dnsErr *net.DNSError
 
 	var certificateInvalidErr *x509.CertificateInvalidError
@@ -81,28 +82,28 @@ func (c *CheckRunner) classifyCheckErrorKind(err error) CheckErrorKind {
 
 	switch {
 	case errors.Is(err, context.DeadlineExceeded):
-		return CheckErrorTimeout
+		return monitor.CheckErrorTimeout
 	case errors.Is(err, context.Canceled):
-		return CheckErrorCanceled
+		return monitor.CheckErrorCanceled
 	case errors.As(err, &dnsErr):
-		return CheckErrorDNS
+		return monitor.CheckErrorDNS
 	case errors.As(err, &certificateInvalidErr),
 		errors.As(err, &hostnameErr),
 		errors.As(err, &unknownAuthorityErr),
 		errors.As(err, &certificateVerificationErr),
 		errors.As(err, &recordHeaderErr):
-		return CheckErrorTLS
+		return monitor.CheckErrorTLS
 	case errors.As(err, &opErr),
 		errors.As(err, &sysErr),
 		errors.As(err, &errnoErr):
-		return CheckErrorConnection
+		return monitor.CheckErrorConnection
 	case errors.As(err, &urlErr):
 		if urlErr.Timeout() || errors.Is(urlErr.Err, context.DeadlineExceeded) {
-			return CheckErrorTimeout
+			return monitor.CheckErrorTimeout
 		}
 
 		return c.classifyCheckErrorKind(urlErr.Err)
 	default:
-		return CheckErrorKindUnknown
+		return monitor.CheckErrorKindUnknown
 	}
 }

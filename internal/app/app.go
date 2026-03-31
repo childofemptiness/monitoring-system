@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+	check2 "url-monitor/internal/check"
 	"url-monitor/internal/config"
 	apphttp "url-monitor/internal/http"
 	"url-monitor/internal/metrics"
@@ -37,9 +38,9 @@ func New(
 
 	repo := postgres.NewMonitorRepository(pool)
 	monitorService := monitor.NewMonitorService(repo)
-	checkService := monitor.NewCheckStoreService(repo)
-	checker := &monitor.CheckRunner{}
-	processor := monitor.NewCheckProcessor(checker, checkService, m)
+	checkService := check2.NewCheckStoreService(repo)
+	checker := &check2.CheckRunner{}
+	processor := check2.NewCheckProcessor(checker, checkService, m)
 	workerPool := monitor.NewWorkerPool(processor, cfg.MonitorCheckWorkersCount, cfg.MonitorCheckQueueSize, m)
 	scheduler := monitor.NewScheduler(repo, workerPool, time.Duration(cfg.SchedulerTimeInterval)*time.Second)
 	handler := apphttp.NewHandler(monitorService, m)

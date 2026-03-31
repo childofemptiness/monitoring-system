@@ -1,4 +1,4 @@
-package monitor
+package check
 
 import (
 	"context"
@@ -8,23 +8,24 @@ import (
 	"testing"
 	"time"
 	"url-monitor/internal/metrics"
+	"url-monitor/internal/monitor"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 type fakeChecker struct {
 	gotCtx     context.Context
-	gotMonitor Monitor
+	gotMonitor monitor.Monitor
 }
 
 type fakeCheckService struct {
 	gotCtx          context.Context
-	savedCheck      MonitorCheck
+	savedCheck      monitor.MonitorCheck
 	savedNextTimeAt time.Time
 	savedErr        error
 }
 
-func (fc *fakeChecker) Check(ctx context.Context, monitor Monitor) MonitorCheck {
+func (fc *fakeChecker) Check(ctx context.Context, monitor monitor.Monitor) monitor.MonitorCheck {
 	fc.gotCtx = ctx
 	fc.gotMonitor = monitor
 
@@ -33,7 +34,7 @@ func (fc *fakeChecker) Check(ctx context.Context, monitor Monitor) MonitorCheck 
 	return check
 }
 
-func (fcs *fakeCheckService) SaveCheckResult(ctx context.Context, check MonitorCheck, nextCheckAt time.Time) error {
+func (fcs *fakeCheckService) SaveCheckResult(ctx context.Context, check monitor.MonitorCheck, nextCheckAt time.Time) error {
 	fcs.gotCtx = ctx
 	fcs.savedCheck = check
 	fcs.savedNextTimeAt = nextCheckAt
@@ -48,9 +49,9 @@ func TestCheckProcessor_Process_Success(t *testing.T) {
 	checkProcessor := NewCheckProcessor(checker, checkService, metrics.NewMetrics(reg))
 
 	ctx := context.Background()
-	monitor, _ := newTestData()
+	m, _ := newTestData()
 
-	if err := checkProcessor.Process(ctx, monitor); err != nil {
+	if err := checkProcessor.Process(ctx, m); err != nil {
 		t.Fatalf("checkProcessor.Process(): %v", err)
 	}
 
@@ -58,22 +59,22 @@ func TestCheckProcessor_Process_Success(t *testing.T) {
 		t.Errorf("checkProcessor.Process(): got context %v; want %v", checker.gotCtx, ctx)
 	}
 
-	if !reflect.DeepEqual(checker.gotMonitor, monitor) {
-		t.Errorf("checkProcessor.Process(): got monitor %v; want %v", checker.gotMonitor, monitor)
+	if !reflect.DeepEqual(checker.gotMonitor, m) {
+		t.Errorf("checkProcessor.Process(): got monitor %v; want %v", checker.gotMonitor, m)
 	}
 
 	if checkService.gotCtx != ctx {
 		t.Errorf("checkProcessor.Process(): got context %v; want %v", checkService.gotCtx, ctx)
 	}
 
-	if checkService.savedCheck.MonitorID != monitor.ID {
-		t.Errorf("checkProcessor.Process(): monitor ID should be %v; got %v", monitor.ID, checkService.savedCheck.MonitorID)
+	if checkService.savedCheck.MonitorID != m.ID {
+		t.Errorf("checkProcessor.Process(): monitor ID should be %v; got %v", m.ID, checkService.savedCheck.MonitorID)
 	}
 
-	neededNextCheckAt := checkService.savedCheck.FinishedAt.Add(time.Duration(monitor.IntervalSeconds) * time.Second)
+	neededNextCheckAt := checkService.savedCheck.FinishedAt.Add(time.Duration(m.IntervalSeconds) * time.Second)
 
 	if !checkService.savedNextTimeAt.Equal(neededNextCheckAt) {
-		t.Errorf("checkProcess.Process(): nextCheckAt should be %v; got %v", monitor.NextCheckAt, checkService.savedNextTimeAt)
+		t.Errorf("checkProcess.Process(): nextCheckAt should be %v; got %v", m.NextCheckAt, checkService.savedNextTimeAt)
 	}
 }
 
@@ -83,22 +84,22 @@ func TestCheckProcessor_Process_SaveCheckResultError(t *testing.T) {
 	reg := prometheus.NewRegistry()
 	checkProcessor := NewCheckProcessor(checker, checkService, metrics.NewMetrics(reg))
 
-	checkService.savedErr = ErrMonitorNotFound
+	checkService.savedErr = monitor.ErrMonitorNotFound
 
 	ctx := context.Background()
 
-	monitor, _ := newTestData()
+	m, _ := newTestData()
 
-	if err := checkProcessor.Process(ctx, monitor); !errors.Is(err, ErrMonitorNotFound) {
-		t.Fatalf("checkProcessor.Process(): got %v; want %v", err, ErrMonitorNotFound)
+	if err := checkProcessor.Process(ctx, m); !errors.Is(err, monitor.ErrMonitorNotFound) {
+		t.Fatalf("checkProcessor.Process(): got %v; want %v", err, monitor.ErrMonitorNotFound)
 	}
 
 	if checker.gotCtx != ctx {
 		t.Errorf("checkProcessor.Process(): got context %v; want %v", checker.gotCtx, ctx)
 	}
 
-	if !reflect.DeepEqual(checker.gotMonitor, monitor) {
-		t.Errorf("checkProcessor.Process(): got monitor %v; want %v", monitor, checker.gotMonitor)
+	if !reflect.DeepEqual(checker.gotMonitor, m) {
+		t.Errorf("checkProcessor.Process(): got monitor %v; want %v", m, checker.gotMonitor)
 	}
 
 	if checkService.gotCtx != ctx {
@@ -106,12 +107,12 @@ func TestCheckProcessor_Process_SaveCheckResultError(t *testing.T) {
 	}
 }
 
-func newTestData() (Monitor, MonitorCheck) {
+func newTestData() (monitor.Monitor, monitor.MonitorCheck) {
 	responseTimeMS := int64(100)
 	finishedAt := time.Date(2026, 3, 27, 15, 54, 11, 0, time.UTC)
 	startedAt := finishedAt.Add(-time.Duration(responseTimeMS) * time.Millisecond)
 
-	monitor := Monitor{
+	m := monitor.Monitor{
 		ID:              1,
 		URL:             "https://example1.com",
 		IntervalSeconds: 10,
@@ -119,9 +120,9 @@ func newTestData() (Monitor, MonitorCheck) {
 		NextCheckAt:     &startedAt,
 	}
 
-	check := MonitorCheck{
-		MonitorID:      monitor.ID,
-		Status:         MonitorCheckStatusUp,
+	check := monitor.MonitorCheck{
+		MonitorID:      m.ID,
+		Status:         monitor.MonitorCheckStatusUp,
 		HTTPStatusCode: http.StatusOK,
 		ErrorMessage:   "",
 		ResponseTimeMS: responseTimeMS,
@@ -129,5 +130,5 @@ func newTestData() (Monitor, MonitorCheck) {
 		FinishedAt:     finishedAt,
 	}
 
-	return monitor, check
+	return m, check
 }

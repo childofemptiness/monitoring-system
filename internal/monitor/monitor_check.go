@@ -1,6 +1,8 @@
 package monitor
 
-import "time"
+import (
+	"time"
+)
 
 type MonitorCheck struct {
 	ID             int64

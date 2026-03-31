@@ -1,4 +1,4 @@
-package monitor
+package check
 
 import (
 	"context"
@@ -7,16 +7,17 @@ import (
 	"reflect"
 	"testing"
 	"time"
+	"url-monitor/internal/monitor"
 )
 
 type fakeCheckRepository struct {
-	savedCheck     MonitorCheck
+	savedCheck     monitor.MonitorCheck
 	savedErr       error
 	gotCtx         context.Context
 	gotNextCheckAt time.Time
 }
 
-func (f *fakeCheckRepository) CompleteCheck(ctx context.Context, check MonitorCheck, nextCheckAt time.Time) error {
+func (f *fakeCheckRepository) CompleteCheck(ctx context.Context, check monitor.MonitorCheck, nextCheckAt time.Time) error {
 	f.savedCheck = check
 	f.gotNextCheckAt = nextCheckAt
 	f.gotCtx = ctx
@@ -54,26 +55,26 @@ func TestCheckService_SaveCheckResult_PropagateRepositoryError(t *testing.T) {
 	repo := &fakeCheckRepository{}
 	svc := NewCheckStoreService(repo)
 
-	repo.savedErr = ErrMonitorNotFound
+	repo.savedErr = monitor.ErrMonitorNotFound
 
 	ctx := context.Background()
 	check := newTestCheck()
 	nextCheckAt := time.Date(2026, time.March, 26, 12, 0, 45, 0, time.UTC)
 
 	err := svc.SaveCheckResult(ctx, check, nextCheckAt)
-	if !errors.Is(err, ErrMonitorNotFound) {
+	if !errors.Is(err, monitor.ErrMonitorNotFound) {
 		t.Errorf("save check result: got %v, want ErrMonitorNotFound", err)
 	}
 }
 
-func newTestCheck() MonitorCheck {
+func newTestCheck() monitor.MonitorCheck {
 	finishedAt := time.Date(2026, time.March, 26, 12, 0, 0, 123456000, time.UTC)
 	responseTimeMS := int64(100)
 	startedAt := finishedAt.Add(-time.Duration(responseTimeMS) * time.Millisecond)
 
-	return MonitorCheck{
+	return monitor.MonitorCheck{
 		MonitorID:      1,
-		Status:         MonitorCheckStatusUp,
+		Status:         monitor.MonitorCheckStatusUp,
 		HTTPStatusCode: http.StatusOK,
 		ErrorMessage:   "",
 		ResponseTimeMS: responseTimeMS,
