@@ -183,6 +183,7 @@ func TestRepository_CompleteCheckSuccessful(t *testing.T) {
 			monitor_id,
 			status,
   			http_status_code,
+  			error_kind,
 			error_message,
 			response_time_ms,
 			started_at,
@@ -192,16 +193,18 @@ func TestRepository_CompleteCheckSuccessful(t *testing.T) {
 		    monitor_id 		 = $1 AND
 			status 	         = $2 AND 
 		    http_status_code = $3 AND 
-		    error_message    = $4 AND
-		    response_time_ms = $5 AND
-		    started_at       = $6 AND 
-		    finished_at      = $7
+		    error_kind = 	   $4 AND
+		    error_message    = $5 AND
+		    response_time_ms = $6 AND
+		    started_at       = $7 AND 
+		    finished_at      = $8
    `
 	var createdCheck monitor.MonitorCheck
 	err = pool.QueryRow(context.Background(), query,
 		check.MonitorID,
 		check.Status,
 		check.HTTPStatusCode,
+		check.ErrorKind,
 		check.ErrorMessage,
 		check.ResponseTimeMS,
 		check.StartedAt,
@@ -211,6 +214,7 @@ func TestRepository_CompleteCheckSuccessful(t *testing.T) {
 		&createdCheck.MonitorID,
 		&createdCheck.Status,
 		&createdCheck.HTTPStatusCode,
+		&createdCheck.ErrorKind,
 		&createdCheck.ErrorMessage,
 		&createdCheck.ResponseTimeMS,
 		&createdCheck.StartedAt,

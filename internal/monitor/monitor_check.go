@@ -7,6 +7,7 @@ type MonitorCheck struct {
 	MonitorID      int64
 	Status         MonitorCheckStatus
 	HTTPStatusCode int16
+	ErrorKind      CheckErrorKind
 	ErrorMessage   string
 	ResponseTimeMS int64
 	StartedAt      time.Time
