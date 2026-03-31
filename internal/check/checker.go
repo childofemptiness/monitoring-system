@@ -102,7 +102,7 @@ func (c *CheckRunner) classifyCheckErrorKind(err error) monitor.CheckErrorKind {
 			return monitor.CheckErrorTimeout
 		}
 
-		return c.classifyCheckErrorKind(urlErr)
+		return c.classifyCheckErrorKind(urlErr.Err)
 	default:
 		return monitor.CheckErrorKindUnknown
 	}
