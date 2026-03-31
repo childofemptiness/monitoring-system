@@ -66,6 +66,10 @@ func (wp *WorkerPool) Run(ctx context.Context) error {
 }
 
 func (wp *WorkerPool) Submit(ctx context.Context, monitor Monitor) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
