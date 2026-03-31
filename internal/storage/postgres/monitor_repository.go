@@ -102,18 +102,20 @@ func (r *Repository) CompleteCheck(ctx context.Context, check monitor.MonitorChe
 		INSERT INTO monitor_checks (
 		                            monitor_id, 
 		                            status, 
-		                            http_status_code, 
+		                            http_status_code,
+		                            error_kind,
 		                            error_message, 
 		                            response_time_ms, 
 		                            started_at, 
 		                            finished_at
 		                            )
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING 
 			id, 
 			monitor_id, 
 			status, 
 			http_status_code, 
+			error_kind,
 			error_message, 
 			response_time_ms, 
 			started_at, 
@@ -124,6 +126,7 @@ func (r *Repository) CompleteCheck(ctx context.Context, check monitor.MonitorChe
 		check.MonitorID,
 		check.Status,
 		check.HTTPStatusCode,
+		check.ErrorKind,
 		check.ErrorMessage,
 		check.ResponseTimeMS,
 		check.StartedAt,

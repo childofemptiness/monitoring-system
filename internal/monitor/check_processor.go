@@ -33,8 +33,8 @@ func (cp *CheckProcessor) Process(ctx context.Context, monitor Monitor) error {
 	check := cp.checker.Check(ctx, monitor)
 	nextCheckAt := check.FinishedAt.Add(time.Duration(monitor.IntervalSeconds) * time.Second)
 
-	if check.ErrorMessage != "" {
-		cp.metrics.IncRequestErrors(check.ErrorMessage)
+	if check.ErrorKind != "" {
+		cp.metrics.IncRequestErrors(string(check.ErrorKind))
 	}
 
 	cp.metrics.ObserveCheck(string(check.Status), time.Duration(check.ResponseTimeMS)*time.Millisecond)
