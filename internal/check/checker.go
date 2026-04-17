@@ -17,8 +17,13 @@ import (
 type CheckRunner struct{}
 
 func (c *CheckRunner) Check(ctx context.Context, m monitor.Monitor) monitor.MonitorCheck {
+	timeout := time.Duration(m.IntervalSeconds/2) * time.Second
+	if timeout < time.Second {
+		timeout = time.Second
+	}
+
 	client := &http.Client{
-		Timeout: time.Duration(m.IntervalSeconds/2) * time.Second,
+		Timeout: timeout,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
