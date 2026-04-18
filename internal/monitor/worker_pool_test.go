@@ -136,8 +136,12 @@ func TestWorkerPool_Run_Success(t *testing.T) {
 
 	cancel()
 
-	if err := <-errCh; !errors.Is(err, context.Canceled) {
+	if err := <-errCh; err != nil {
 		t.Fatalf("failed to cancel worker pool: %s", err)
+	}
+
+	if !errors.Is(ctx.Err(), context.Canceled) {
+		t.Fatalf("worker pool context error: got %v, want %v", ctx.Err(), context.Canceled)
 	}
 
 	for _, monitor := range monitors {
@@ -161,7 +165,11 @@ func TestWorkerPool_Run_Timeout(t *testing.T) {
 		errCh <- wp.Run(ctx)
 	}(ctx)
 
-	if err := <-errCh; !errors.Is(err, context.DeadlineExceeded) {
+	if err := <-errCh; err != nil {
 		t.Fatalf("failed to cancel worker pool: %s", err)
+	}
+
+	if !errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		t.Fatalf("worker pool context error: got %v, want %v", ctx.Err(), context.DeadlineExceeded)
 	}
 }

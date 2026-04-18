@@ -2,8 +2,11 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"os/signal"
+	"syscall"
 	"time"
 	check2 "url-monitor/internal/check"
 	"url-monitor/internal/config"
@@ -14,6 +17,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
+	"golang.org/x/sync/errgroup"
 )
 
 type App struct {
@@ -62,33 +66,42 @@ func New(
 
 func (a *App) Run() error {
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
-	errCh := make(chan error, 2)
+	g, ctx := errgroup.WithContext(rootCtx)
 
-	go func(ctx context.Context) {
-		if err := a.scheduler.Run(ctx); err != nil {
-			errCh <- err
+	g.Go(func() error {
+		return a.scheduler.Run(ctx)
+	})
+
+	g.Go(func() error {
+		return a.workerPool.Run(ctx)
+	})
+
+	g.Go(func() error {
+		err := a.server.ListenAndServe()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return err
 		}
-	}(ctx)
 
-	go func(ctx context.Context) {
-		a.workerPool.Run(ctx)
-	}(ctx)
+		return nil
+	})
 
-	go func() {
-		if err := a.server.ListenAndServe(); err != nil {
-			errCh <- err
+	g.Go(func() error {
+		<-ctx.Done()
+
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := a.server.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return err
 		}
 
-		errCh <- nil
-	}()
-
-	err := <-errCh
-	defer close(errCh)
-
-	return err
+		return nil
+	})
+	
+	return g.Wait()
 }
 
 func (a *App) Close(ctx context.Context) error {

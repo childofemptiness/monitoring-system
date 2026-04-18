@@ -78,8 +78,12 @@ func TestScheduler_Run_SucceedContextCancellation(t *testing.T) {
 		t.Fatal("timed out waiting for scheduler to finish")
 	}
 
-	if err := <-errCh; !errors.Is(err, context.Canceled) {
+	if err := <-errCh; err != nil {
 		t.Fatalf("scheduler run failed: %v", err)
+	}
+
+	if !errors.Is(ctx.Err(), context.Canceled) {
+		t.Fatalf("scheduler context error: got %v, want %v", ctx.Err(), context.Canceled)
 	}
 
 	if repo.gotCtx != ctx {
@@ -161,8 +165,12 @@ func TestScheduler_Run_TimeoutError(t *testing.T) {
 
 	select {
 	case err := <-errCh:
-		if !errors.Is(err, context.DeadlineExceeded) {
+		if err != nil {
 			t.Fatalf("scheduler run failed: %v", err)
+		}
+
+		if !errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			t.Fatalf("scheduler context error: got %v, want %v", ctx.Err(), context.DeadlineExceeded)
 		}
 	case <-time.After(1 * time.Second):
 		t.Fatal("timed out waiting for scheduler to finish")

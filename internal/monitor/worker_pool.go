@@ -53,16 +53,16 @@ func (wp *WorkerPool) Run(ctx context.Context) error {
 	for i := 0; i < wp.workersCount; i++ {
 		wg.Add(1)
 
-		go func(ctx context.Context, wg *sync.WaitGroup, workerID int) {
+		go func(workerID int) {
 			defer wg.Done()
 			wp.runWorker(ctx, workerID)
-		}(ctx, &wg, i)
+		}(i)
 	}
-	//
+
 	<-ctx.Done()
 	wg.Wait()
 
-	return ctx.Err()
+	return nil
 }
 
 func (wp *WorkerPool) Submit(ctx context.Context, monitor Monitor) error {
@@ -80,6 +80,7 @@ func (wp *WorkerPool) Submit(ctx context.Context, monitor Monitor) error {
 
 func (wp *WorkerPool) runWorker(ctx context.Context, workerID int) {
 	log.Printf("worker %d starting", workerID)
+	defer log.Printf("worker %d stopped", workerID)
 
 	for {
 		select {
@@ -95,6 +96,8 @@ func (wp *WorkerPool) runWorker(ctx context.Context, workerID int) {
 				if errors.Is(err, context.Canceled) {
 					return
 				}
+
+				log.Printf("worker %d: failed to process monitor: %v", workerID, err)
 			}
 		}
 	}
