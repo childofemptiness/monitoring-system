@@ -44,15 +44,13 @@ func (s *Scheduler) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			log.Printf("scheduler stopped")
+			return nil
 		case <-ticker.C:
-			err := s.runOnce(ctx)
-			if err == nil {
-				continue
+			if err := s.runOnce(ctx); err != nil {
+				log.Printf("scheduler run error: %v", err)
+				return err
 			}
-
-			log.Printf("scheduler temporary error: %v", err)
-			return err
 		}
 	}
 }

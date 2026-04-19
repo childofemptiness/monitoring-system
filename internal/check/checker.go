@@ -17,8 +17,13 @@ import (
 type CheckRunner struct{}
 
 func (c *CheckRunner) Check(ctx context.Context, m monitor.Monitor) monitor.MonitorCheck {
+	timeout := time.Duration(m.IntervalSeconds/2) * time.Second
+	if timeout < time.Second {
+		timeout = time.Second
+	}
+
 	client := &http.Client{
-		Timeout: time.Duration(m.IntervalSeconds/2) * time.Second,
+		Timeout: timeout,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
@@ -87,15 +92,15 @@ func (c *CheckRunner) classifyCheckErrorKind(err error) monitor.CheckErrorKind {
 		return monitor.CheckErrorCanceled
 	case errors.As(err, &dnsErr):
 		return monitor.CheckErrorDNS
-	case errors.As(err, &certificateInvalidErr):
-	case errors.As(err, &hostnameErr):
-	case errors.As(err, &unknownAuthorityErr):
-	case errors.As(err, &certificateVerificationErr):
-	case errors.As(err, &recordHeaderErr):
+	case errors.As(err, &certificateInvalidErr),
+		errors.As(err, &hostnameErr),
+		errors.As(err, &unknownAuthorityErr),
+		errors.As(err, &certificateVerificationErr),
+		errors.As(err, &recordHeaderErr):
 		return monitor.CheckErrorTLS
-	case errors.As(err, &opErr):
-	case errors.As(err, &sysErr):
-	case errors.As(err, &errnoErr):
+	case errors.As(err, &opErr),
+		errors.As(err, &sysErr),
+		errors.As(err, &errnoErr):
 		return monitor.CheckErrorConnection
 	case errors.As(err, &urlErr):
 		if urlErr.Timeout() || errors.Is(urlErr.Err, context.DeadlineExceeded) {
@@ -106,6 +111,4 @@ func (c *CheckRunner) classifyCheckErrorKind(err error) monitor.CheckErrorKind {
 	default:
 		return monitor.CheckErrorKindUnknown
 	}
-
-	return monitor.CheckErrorKindUnknown
 }
