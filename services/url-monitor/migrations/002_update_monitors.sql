@@ -1,0 +1,4 @@
+ALTER TABLE monitors
+ADD COLUMN updated_at TIMESTAMPTZ,
+ADD COLUMN last_check_at TIMESTAMPTZ,
+ADD COLUMN next_check_at TIMESTAMPTZ;
