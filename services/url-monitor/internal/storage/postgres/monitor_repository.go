@@ -6,9 +6,9 @@ import (
 	"errors"
 	"log"
 	"time"
-	"url-monitor/internal/check"
 	"url-monitor/internal/events"
 	"url-monitor/internal/monitor"
+	"url-monitor/internal/ports"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -92,7 +92,7 @@ func (r *Repository) ListDue(ctx context.Context, now time.Time, limit int) ([]m
 	return r.executeQuery(ctx, query, now, limit)
 }
 
-func (r *Repository) CompleteCheck(ctx context.Context, input check.CreateCheckWithEventInput) error {
+func (r *Repository) CompleteCheck(ctx context.Context, input ports.CreateCheckWithEventInput) error {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err

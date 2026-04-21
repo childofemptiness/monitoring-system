@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 	"url-monitor/internal/monitor"
+	"url-monitor/internal/ports"
 )
 
 type fakeCheckRepository struct {
@@ -19,7 +20,7 @@ type fakeCheckRepository struct {
 
 func (f *fakeCheckRepository) CompleteCheck(
 	ctx context.Context,
-	input CreateCheckWithEventInput,
+	input ports.CreateCheckWithEventInput,
 ) error {
 	f.savedCheck = monitor.MonitorCheck{
 		MonitorID:      input.MonitorID,

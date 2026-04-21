@@ -5,36 +5,17 @@ import (
 	"time"
 	"url-monitor/internal/events"
 	"url-monitor/internal/monitor"
+	"url-monitor/internal/ports"
 
 	"github.com/google/uuid"
 )
 
 type CheckRepository interface {
-	CompleteCheck(ctx context.Context, input CreateCheckWithEventInput) error
+	CompleteCheck(ctx context.Context, input ports.CreateCheckWithEventInput) error
 }
 
 type CheckStoreService struct {
 	repo CheckRepository
-}
-
-type CreateCheckWithEventInput struct {
-	MonitorID      int64
-	URL            string
-	Status         monitor.MonitorCheckStatus
-	HTTPStatusCode int16
-	ErrorMessage   string
-	ErrorKind      monitor.CheckErrorKind
-	ResponseTimeMS int64
-	StartedAt      time.Time
-	FinishedAt     time.Time
-
-	EventID      uuid.UUID
-	EventType    events.EventType
-	EventVersion int
-	OccurredAt   time.Time
-	Producer     events.EventProducer
-
-	NextCheckAt time.Time
 }
 
 func NewCheckStoreService(repo CheckRepository) *CheckStoreService {
@@ -52,7 +33,7 @@ func (c *CheckStoreService) SaveCheckResult(
 		return err
 	}
 
-	input := CreateCheckWithEventInput{
+	input := ports.CreateCheckWithEventInput{
 		MonitorID:      check.MonitorID,
 		URL:            monitorURL,
 		Status:         check.Status,

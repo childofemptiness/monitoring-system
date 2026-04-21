@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"testing"
 	"time"
-	"url-monitor/internal/check"
 	"url-monitor/internal/events"
 	"url-monitor/internal/monitor"
+	"url-monitor/internal/ports"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -165,7 +165,7 @@ func TestRepository_CompleteCheckSuccessful(t *testing.T) {
 	duration := time.Duration(responseTimeMS) * time.Millisecond
 	startedAt := finishedAt.Add(-duration).Truncate(time.Microsecond)
 
-	input := check.CreateCheckWithEventInput{
+	input := ports.CreateCheckWithEventInput{
 		MonitorID:      createdMonitor.ID,
 		URL:            "https://example.com",
 		Status:         monitor.MonitorCheckStatusUp,
@@ -287,7 +287,7 @@ func TestRepository_CompleteCheckNonExistentMonitorIDInsertError(t *testing.T) {
 	duration := time.Duration(responseTimeMS) * time.Millisecond
 	startedAt := finishedAt.Add(-duration).Truncate(time.Microsecond)
 
-	input := check.CreateCheckWithEventInput{
+	input := ports.CreateCheckWithEventInput{
 		MonitorID:      int64(111),
 		URL:            "https://example.com",
 		Status:         monitor.MonitorCheckStatusUp,
