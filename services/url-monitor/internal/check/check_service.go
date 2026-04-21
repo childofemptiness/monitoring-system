@@ -10,11 +10,31 @@ import (
 )
 
 type CheckRepository interface {
-	CompleteCheck(ctx context.Context, check monitor.MonitorCheck, event events.URLChecked, nextCheckAt time.Time) error
+	CompleteCheck(ctx context.Context, input CreateCheckWithEventInput) error
 }
 
 type CheckStoreService struct {
 	repo CheckRepository
+}
+
+type CreateCheckWithEventInput struct {
+	MonitorID      int64
+	URL            string
+	Status         monitor.MonitorCheckStatus
+	HTTPStatusCode int16
+	ErrorMessage   string
+	ErrorKind      monitor.CheckErrorKind
+	ResponseTimeMS int64
+	StartedAt      time.Time
+	FinishedAt     time.Time
+
+	EventID      uuid.UUID
+	EventType    events.EventType
+	EventVersion int
+	OccurredAt   time.Time
+	Producer     events.EventProducer
+
+	NextCheckAt time.Time
 }
 
 func NewCheckStoreService(repo CheckRepository) *CheckStoreService {
@@ -32,27 +52,27 @@ func (c *CheckStoreService) SaveCheckResult(
 		return err
 	}
 
-	urlCheckedEvent := events.URLChecked{
+	input := CreateCheckWithEventInput{
+		MonitorID:      check.MonitorID,
+		URL:            monitorURL,
+		Status:         check.Status,
+		HTTPStatusCode: check.HTTPStatusCode,
+		ErrorMessage:   check.ErrorMessage,
+		ErrorKind:      check.ErrorKind,
+		ResponseTimeMS: check.ResponseTimeMS,
+		StartedAt:      check.StartedAt,
+		FinishedAt:     check.FinishedAt,
+
 		EventID:      eventID,
 		EventType:    events.EventTypeURLChecked,
 		EventVersion: events.EventVersionURLChecked,
-		OccurredAt:   check.FinishedAt,
 		Producer:     events.EventProducerURLMonitor,
-		Payload: events.Payload{
-			MonitorID: check.MonitorID,
-			URL:       monitorURL,
-			Status:    check.Status,
-			CheckedAt: check.FinishedAt,
-		},
+		OccurredAt:   check.FinishedAt,
+
+		NextCheckAt: nextCheckAt,
 	}
 
-	if check.Status != monitor.MonitorCheckStatusError {
-		urlCheckedEvent.Payload.HTTPStatusCode = &check.HTTPStatusCode
-	} else if check.ErrorKind != "" {
-		urlCheckedEvent.Payload.ErrorKind = &check.ErrorKind
-	}
-
-	return c.repo.CompleteCheck(ctx, check, urlCheckedEvent, nextCheckAt)
+	return c.repo.CompleteCheck(ctx, input)
 }
 
 func getNewEventID() (uuid.UUID, error) {
