@@ -8,6 +8,7 @@ import (
 	"time"
 	"url-monitor/internal/events"
 	"url-monitor/internal/monitor"
+	"url-monitor/internal/ports"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -164,33 +165,26 @@ func TestRepository_CompleteCheckSuccessful(t *testing.T) {
 	duration := time.Duration(responseTimeMS) * time.Millisecond
 	startedAt := finishedAt.Add(-duration).Truncate(time.Microsecond)
 
-	check := monitor.MonitorCheck{
+	input := ports.CreateCheckWithEventInput{
 		MonitorID:      createdMonitor.ID,
+		URL:            "https://example.com",
 		Status:         monitor.MonitorCheckStatusUp,
 		HTTPStatusCode: http.StatusOK,
 		ErrorMessage:   "",
 		ResponseTimeMS: responseTimeMS,
 		StartedAt:      startedAt,
 		FinishedAt:     finishedAt,
-	}
-	event := events.URLChecked{
+
 		EventID:      uuid.Nil,
 		EventType:    events.EventTypeURLChecked,
 		EventVersion: 1,
-		OccurredAt:   check.FinishedAt,
+		OccurredAt:   finishedAt,
 		Producer:     events.EventProducerURLMonitor,
-		Payload: events.Payload{
-			CheckID:        check.ID,
-			MonitorID:      check.MonitorID,
-			URL:            "https://example.com",
-			Status:         check.Status,
-			HTTPStatusCode: &check.HTTPStatusCode,
-			ErrorKind:      &check.ErrorKind,
-			CheckedAt:      check.FinishedAt,
-		},
+
+		NextCheckAt: nextCheckAt,
 	}
 
-	err = repo.CompleteCheck(context.Background(), check, event, nextCheckAt)
+	err = repo.CompleteCheck(context.Background(), input)
 	if err != nil {
 		t.Fatalf("complete check: %v", err)
 	}
@@ -219,14 +213,14 @@ func TestRepository_CompleteCheckSuccessful(t *testing.T) {
    `
 	var createdCheck monitor.MonitorCheck
 	err = pool.QueryRow(context.Background(), query,
-		check.MonitorID,
-		check.Status,
-		check.HTTPStatusCode,
-		check.ErrorKind,
-		check.ErrorMessage,
-		check.ResponseTimeMS,
-		check.StartedAt,
-		check.FinishedAt,
+		input.MonitorID,
+		input.Status,
+		input.HTTPStatusCode,
+		input.ErrorKind,
+		input.ErrorMessage,
+		input.ResponseTimeMS,
+		input.StartedAt,
+		input.FinishedAt,
 	).Scan(
 		&createdCheck.ID,
 		&createdCheck.MonitorID,
@@ -293,33 +287,26 @@ func TestRepository_CompleteCheckNonExistentMonitorIDInsertError(t *testing.T) {
 	duration := time.Duration(responseTimeMS) * time.Millisecond
 	startedAt := finishedAt.Add(-duration).Truncate(time.Microsecond)
 
-	check := monitor.MonitorCheck{
+	input := ports.CreateCheckWithEventInput{
 		MonitorID:      int64(111),
+		URL:            "https://example.com",
 		Status:         monitor.MonitorCheckStatusUp,
 		HTTPStatusCode: http.StatusOK,
 		ErrorMessage:   "",
 		ResponseTimeMS: responseTimeMS,
 		StartedAt:      startedAt,
 		FinishedAt:     finishedAt,
-	}
-	event := events.URLChecked{
+
 		EventID:      uuid.Nil,
 		EventType:    events.EventTypeURLChecked,
 		EventVersion: 1,
-		OccurredAt:   check.FinishedAt,
+		OccurredAt:   finishedAt,
 		Producer:     events.EventProducerURLMonitor,
-		Payload: events.Payload{
-			CheckID:        check.ID,
-			MonitorID:      check.MonitorID,
-			URL:            "https://example.com",
-			Status:         check.Status,
-			HTTPStatusCode: &check.HTTPStatusCode,
-			ErrorKind:      &check.ErrorKind,
-			CheckedAt:      check.FinishedAt,
-		},
+
+		NextCheckAt: nextCheckAt,
 	}
 
-	err := repo.CompleteCheck(context.Background(), check, event, nextCheckAt)
+	err := repo.CompleteCheck(context.Background(), input)
 	if !errors.Is(err, monitor.ErrMonitorNotFound) {
 		t.Errorf("expected ErrMonitorNotFound error, got %v", err)
 	}

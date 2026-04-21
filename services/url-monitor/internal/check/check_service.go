@@ -5,12 +5,13 @@ import (
 	"time"
 	"url-monitor/internal/events"
 	"url-monitor/internal/monitor"
+	"url-monitor/internal/ports"
 
 	"github.com/google/uuid"
 )
 
 type CheckRepository interface {
-	CompleteCheck(ctx context.Context, check monitor.MonitorCheck, event events.URLChecked, nextCheckAt time.Time) error
+	CompleteCheck(ctx context.Context, input ports.CreateCheckWithEventInput) error
 }
 
 type CheckStoreService struct {
@@ -32,27 +33,27 @@ func (c *CheckStoreService) SaveCheckResult(
 		return err
 	}
 
-	urlCheckedEvent := events.URLChecked{
+	input := ports.CreateCheckWithEventInput{
+		MonitorID:      check.MonitorID,
+		URL:            monitorURL,
+		Status:         check.Status,
+		HTTPStatusCode: check.HTTPStatusCode,
+		ErrorMessage:   check.ErrorMessage,
+		ErrorKind:      check.ErrorKind,
+		ResponseTimeMS: check.ResponseTimeMS,
+		StartedAt:      check.StartedAt,
+		FinishedAt:     check.FinishedAt,
+
 		EventID:      eventID,
 		EventType:    events.EventTypeURLChecked,
 		EventVersion: events.EventVersionURLChecked,
-		OccurredAt:   check.FinishedAt,
 		Producer:     events.EventProducerURLMonitor,
-		Payload: events.Payload{
-			MonitorID: check.MonitorID,
-			URL:       monitorURL,
-			Status:    check.Status,
-			CheckedAt: check.FinishedAt,
-		},
+		OccurredAt:   check.FinishedAt,
+
+		NextCheckAt: nextCheckAt,
 	}
 
-	if check.Status != monitor.MonitorCheckStatusError {
-		urlCheckedEvent.Payload.HTTPStatusCode = &check.HTTPStatusCode
-	} else if check.ErrorKind != "" {
-		urlCheckedEvent.Payload.ErrorKind = &check.ErrorKind
-	}
-
-	return c.repo.CompleteCheck(ctx, check, urlCheckedEvent, nextCheckAt)
+	return c.repo.CompleteCheck(ctx, input)
 }
 
 func getNewEventID() (uuid.UUID, error) {

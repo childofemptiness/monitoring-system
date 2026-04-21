@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
-	"url-monitor/internal/events"
 	"url-monitor/internal/monitor"
+	"url-monitor/internal/ports"
 )
 
 type fakeCheckRepository struct {
@@ -20,12 +20,19 @@ type fakeCheckRepository struct {
 
 func (f *fakeCheckRepository) CompleteCheck(
 	ctx context.Context,
-	check monitor.MonitorCheck,
-	event events.URLChecked,
-	nextCheckAt time.Time,
+	input ports.CreateCheckWithEventInput,
 ) error {
-	f.savedCheck = check
-	f.gotNextCheckAt = nextCheckAt
+	f.savedCheck = monitor.MonitorCheck{
+		MonitorID:      input.MonitorID,
+		Status:         input.Status,
+		HTTPStatusCode: input.HTTPStatusCode,
+		ResponseTimeMS: input.ResponseTimeMS,
+		ErrorKind:      input.ErrorKind,
+		ErrorMessage:   input.ErrorMessage,
+		StartedAt:      input.StartedAt,
+		FinishedAt:     input.FinishedAt,
+	}
+	f.gotNextCheckAt = input.NextCheckAt
 	f.gotCtx = ctx
 
 	return f.savedErr

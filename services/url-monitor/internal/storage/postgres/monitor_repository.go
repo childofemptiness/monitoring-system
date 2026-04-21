@@ -6,8 +6,9 @@ import (
 	"errors"
 	"log"
 	"time"
-	events "url-monitor/internal/events"
+	"url-monitor/internal/events"
 	"url-monitor/internal/monitor"
+	"url-monitor/internal/ports"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -91,7 +92,7 @@ func (r *Repository) ListDue(ctx context.Context, now time.Time, limit int) ([]m
 	return r.executeQuery(ctx, query, now, limit)
 }
 
-func (r *Repository) CompleteCheck(ctx context.Context, check monitor.MonitorCheck, event events.URLChecked, nextCheckAt time.Time) error {
+func (r *Repository) CompleteCheck(ctx context.Context, input ports.CreateCheckWithEventInput) error {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
@@ -116,17 +117,18 @@ func (r *Repository) CompleteCheck(ctx context.Context, check monitor.MonitorChe
 			id
 	`
 
+	var checkID int64
 	err = tx.QueryRow(ctx, query,
-		check.MonitorID,
-		check.Status,
-		check.HTTPStatusCode,
-		check.ErrorKind,
-		check.ErrorMessage,
-		check.ResponseTimeMS,
-		check.StartedAt,
-		check.FinishedAt,
+		input.MonitorID,
+		input.Status,
+		input.HTTPStatusCode,
+		input.ErrorKind,
+		input.ErrorMessage,
+		input.ResponseTimeMS,
+		input.StartedAt,
+		input.FinishedAt,
 	).Scan(
-		&check.ID,
+		&checkID,
 	)
 	if err != nil {
 		if isForeignKeyViolation(err) {
@@ -144,16 +146,29 @@ func (r *Repository) CompleteCheck(ctx context.Context, check monitor.MonitorChe
 	`
 
 	_, err = tx.Exec(ctx, query,
-		check.MonitorID,
-		check.FinishedAt,
-		nextCheckAt,
+		input.MonitorID,
+		input.FinishedAt,
+		input.NextCheckAt,
 	)
 	if err != nil {
 		return err
 	}
 
-	event.Payload.CheckID = check.ID
-	payload, err := json.Marshal(event.Payload)
+	payload := events.URLCheckedPayload{
+		CheckID:   checkID,
+		MonitorID: input.MonitorID,
+		URL:       input.URL,
+		Status:    input.Status,
+		CheckedAt: input.FinishedAt,
+	}
+
+	if payload.Status != monitor.MonitorCheckStatusError {
+		payload.HTTPStatusCode = &input.HTTPStatusCode
+	} else if input.ErrorKind != "" {
+		payload.ErrorKind = &input.ErrorKind
+	}
+
+	payloadJSON, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
@@ -172,13 +187,13 @@ func (r *Repository) CompleteCheck(ctx context.Context, check monitor.MonitorChe
 	`
 
 	_, err = tx.Exec(ctx, query,
-		event.EventID,
-		event.EventType,
-		event.EventVersion,
+		input.EventID,
+		input.EventType,
+		input.EventVersion,
 		"pending",
-		event.Producer,
-		payload,
-		event.OccurredAt,
+		input.Producer,
+		payloadJSON,
+		input.OccurredAt,
 	)
 	if err != nil {
 		return err
