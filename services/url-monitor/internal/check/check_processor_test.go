@@ -34,7 +34,7 @@ func (fc *fakeChecker) Check(ctx context.Context, monitor monitor.Monitor) monit
 	return check
 }
 
-func (fcs *fakeCheckService) SaveCheckResult(ctx context.Context, check monitor.MonitorCheck, nextCheckAt time.Time) error {
+func (fcs *fakeCheckService) SaveCheckResult(ctx context.Context, check monitor.MonitorCheck, nextCheckAt time.Time, monitorURL string) error {
 	fcs.gotCtx = ctx
 	fcs.savedCheck = check
 	fcs.savedNextTimeAt = nextCheckAt

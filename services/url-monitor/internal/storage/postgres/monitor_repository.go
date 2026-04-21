@@ -2,9 +2,11 @@ package postgres
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log"
 	"time"
+	events "url-monitor/internal/events"
 	"url-monitor/internal/monitor"
 
 	"github.com/jackc/pgx/v5"
@@ -89,7 +91,7 @@ func (r *Repository) ListDue(ctx context.Context, now time.Time, limit int) ([]m
 	return r.executeQuery(ctx, query, now, limit)
 }
 
-func (r *Repository) CompleteCheck(ctx context.Context, check monitor.MonitorCheck, nextCheckAt time.Time) error {
+func (r *Repository) CompleteCheck(ctx context.Context, check monitor.MonitorCheck, event events.URLChecked, nextCheckAt time.Time) error {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
@@ -111,18 +113,10 @@ func (r *Repository) CompleteCheck(ctx context.Context, check monitor.MonitorChe
 		                            )
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING 
-			id, 
-			monitor_id, 
-			status, 
-			http_status_code, 
-			error_kind,
-			error_message, 
-			response_time_ms, 
-			started_at, 
-			finished_at
+			id
 	`
 
-	_, err = tx.Exec(ctx, query,
+	err = tx.QueryRow(ctx, query,
 		check.MonitorID,
 		check.Status,
 		check.HTTPStatusCode,
@@ -131,6 +125,8 @@ func (r *Repository) CompleteCheck(ctx context.Context, check monitor.MonitorChe
 		check.ResponseTimeMS,
 		check.StartedAt,
 		check.FinishedAt,
+	).Scan(
+		&check.ID,
 	)
 	if err != nil {
 		if isForeignKeyViolation(err) {
@@ -151,6 +147,38 @@ func (r *Repository) CompleteCheck(ctx context.Context, check monitor.MonitorChe
 		check.MonitorID,
 		check.FinishedAt,
 		nextCheckAt,
+	)
+	if err != nil {
+		return err
+	}
+
+	event.Payload.CheckID = check.ID
+	payload, err := json.Marshal(event.Payload)
+	if err != nil {
+		return err
+	}
+
+	query = `
+		INSERT INTO outbox_events (
+		                           event_id,
+		                           event_type,
+		                           event_version,
+		                           status,
+		                           producer,
+		                           payload,
+		                           occurred_at
+								   )
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`
+
+	_, err = tx.Exec(ctx, query,
+		event.EventID,
+		event.EventType,
+		event.EventVersion,
+		"pending",
+		event.Producer,
+		payload,
+		event.OccurredAt,
 	)
 	if err != nil {
 		return err

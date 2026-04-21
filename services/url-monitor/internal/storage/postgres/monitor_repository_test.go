@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"testing"
 	"time"
+	"url-monitor/internal/events"
 	"url-monitor/internal/monitor"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -171,8 +173,24 @@ func TestRepository_CompleteCheckSuccessful(t *testing.T) {
 		StartedAt:      startedAt,
 		FinishedAt:     finishedAt,
 	}
+	event := events.URLChecked{
+		EventID:      uuid.Nil,
+		EventType:    events.EventTypeURLChecked,
+		EventVersion: 1,
+		OccurredAt:   check.FinishedAt,
+		Producer:     events.EventProducerURLMonitor,
+		Payload: events.Payload{
+			CheckID:        check.ID,
+			MonitorID:      check.MonitorID,
+			URL:            "https://example.com",
+			Status:         check.Status,
+			HTTPStatusCode: &check.HTTPStatusCode,
+			ErrorKind:      &check.ErrorKind,
+			CheckedAt:      check.FinishedAt,
+		},
+	}
 
-	err = repo.CompleteCheck(context.Background(), check, nextCheckAt)
+	err = repo.CompleteCheck(context.Background(), check, event, nextCheckAt)
 	if err != nil {
 		t.Fatalf("complete check: %v", err)
 	}
@@ -284,8 +302,24 @@ func TestRepository_CompleteCheckNonExistentMonitorIDInsertError(t *testing.T) {
 		StartedAt:      startedAt,
 		FinishedAt:     finishedAt,
 	}
+	event := events.URLChecked{
+		EventID:      uuid.Nil,
+		EventType:    events.EventTypeURLChecked,
+		EventVersion: 1,
+		OccurredAt:   check.FinishedAt,
+		Producer:     events.EventProducerURLMonitor,
+		Payload: events.Payload{
+			CheckID:        check.ID,
+			MonitorID:      check.MonitorID,
+			URL:            "https://example.com",
+			Status:         check.Status,
+			HTTPStatusCode: &check.HTTPStatusCode,
+			ErrorKind:      &check.ErrorKind,
+			CheckedAt:      check.FinishedAt,
+		},
+	}
 
-	err := repo.CompleteCheck(context.Background(), check, nextCheckAt)
+	err := repo.CompleteCheck(context.Background(), check, event, nextCheckAt)
 	if !errors.Is(err, monitor.ErrMonitorNotFound) {
 		t.Errorf("expected ErrMonitorNotFound error, got %v", err)
 	}

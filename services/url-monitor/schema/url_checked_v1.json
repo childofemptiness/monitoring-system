@@ -1,0 +1,62 @@
+{
+  "type": "object",
+  "fields": {
+    "event_id": {
+      "type": "string",
+      "required": true
+    },
+    "event_type": {
+      "type": "string",
+      "required": true,
+      "enum": ["url_checked"]
+    },
+    "event_version": {
+      "type": "integer",
+      "required": true
+    },
+    "occurred_at": {
+      "type": "timestamp",
+      "required": true
+    },
+    "producer": {
+      "type": "string",
+      "required": true,
+      "enum": ["url-monitor"]
+    },
+    "payload": {
+      "type": "object",
+      "required": true,
+      "fields": {
+        "check_id": {
+          "type": "integer",
+          "required": true
+        },
+        "monitor_id": {
+          "type": "integer",
+          "required": true
+        },
+        "url": {
+          "type": "string",
+          "required": true
+        },
+        "status": {
+          "type": "string",
+          "required": true,
+          "enum": ["up", "down", "error"]
+        },
+        "http_status_code": {
+          "type": "integer",
+          "required": false
+        },
+        "error_kind": {
+          "type": "string",
+          "required": false
+        },
+        "checked_at": {
+          "type": "timestamp",
+          "required": true
+        }
+      }
+    }
+  }
+}
