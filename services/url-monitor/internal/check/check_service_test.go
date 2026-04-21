@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"testing"
 	"time"
+	"url-monitor/internal/events"
 	"url-monitor/internal/monitor"
 )
 
@@ -17,7 +18,12 @@ type fakeCheckRepository struct {
 	gotNextCheckAt time.Time
 }
 
-func (f *fakeCheckRepository) CompleteCheck(ctx context.Context, check monitor.MonitorCheck, nextCheckAt time.Time) error {
+func (f *fakeCheckRepository) CompleteCheck(
+	ctx context.Context,
+	check monitor.MonitorCheck,
+	event events.URLChecked,
+	nextCheckAt time.Time,
+) error {
 	f.savedCheck = check
 	f.gotNextCheckAt = nextCheckAt
 	f.gotCtx = ctx
@@ -32,8 +38,9 @@ func TestCheckService_SaveCheckResult_Success(t *testing.T) {
 	ctx := context.Background()
 	check := newTestCheck()
 	nextCheckAt := time.Date(2026, time.March, 26, 12, 0, 45, 0, time.UTC)
+	url := "https://www.example.com"
 
-	err := svc.SaveCheckResult(ctx, check, nextCheckAt)
+	err := svc.SaveCheckResult(ctx, check, nextCheckAt, url)
 	if err != nil {
 		t.Fatalf("save check result: %v", err)
 	}
@@ -60,8 +67,9 @@ func TestCheckService_SaveCheckResult_PropagateRepositoryError(t *testing.T) {
 	ctx := context.Background()
 	check := newTestCheck()
 	nextCheckAt := time.Date(2026, time.March, 26, 12, 0, 45, 0, time.UTC)
+	url := "https://www.example.com"
 
-	err := svc.SaveCheckResult(ctx, check, nextCheckAt)
+	err := svc.SaveCheckResult(ctx, check, nextCheckAt, url)
 	if !errors.Is(err, monitor.ErrMonitorNotFound) {
 		t.Errorf("save check result: got %v, want ErrMonitorNotFound", err)
 	}

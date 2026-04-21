@@ -16,7 +16,10 @@ import (
 )
 
 func main() {
-	_ = godotenv.Load()
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("warning: .env file not found")
+	}
 
 	cfg, err := config.Load()
 	if err != nil {

@@ -11,7 +11,7 @@ type Checker interface {
 	Check(ctx context.Context, monitor monitor.Monitor) monitor.MonitorCheck
 }
 type CheckService interface {
-	SaveCheckResult(ctx context.Context, check monitor.MonitorCheck, nextCheckAt time.Time) error
+	SaveCheckResult(ctx context.Context, check monitor.MonitorCheck, nextCheckAt time.Time, monitorURL string) error
 }
 type CheckProcessor struct {
 	checker      Checker
@@ -40,7 +40,7 @@ func (cp *CheckProcessor) Process(ctx context.Context, monitor monitor.Monitor) 
 
 	cp.metrics.ObserveCheck(string(check.Status), time.Duration(check.ResponseTimeMS)*time.Millisecond)
 
-	err := cp.checkService.SaveCheckResult(ctx, check, nextCheckAt)
+	err := cp.checkService.SaveCheckResult(ctx, check, nextCheckAt, monitor.URL)
 	if err != nil {
 		return err
 	}
