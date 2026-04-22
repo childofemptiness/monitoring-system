@@ -8,11 +8,12 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-	check2 "url-monitor/internal/check"
+	"url-monitor/internal/check"
 	"url-monitor/internal/config"
 	apphttp "url-monitor/internal/http"
 	"url-monitor/internal/metrics"
 	"url-monitor/internal/monitor"
+	"url-monitor/internal/pool"
 	"url-monitor/internal/storage/postgres"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -20,12 +21,16 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+type Runner interface {
+	Run(ctx context.Context) error
+}
+
 type App struct {
-	cfg        *config.Config
-	server     *http.Server
-	db         *pgxpool.Pool
-	scheduler  *monitor.Scheduler
-	workerPool *monitor.WorkerPool
+	cfg       *config.Config
+	server    *http.Server
+	db        *pgxpool.Pool
+	scheduler *monitor.Scheduler
+	runners   []Runner
 }
 
 func New(
@@ -33,20 +38,23 @@ func New(
 	addr string,
 	cfg *config.Config,
 ) (*App, error) {
-	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL)
+	pgPool, err := postgres.NewPool(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return nil, err
 	}
 
 	m := metrics.NewMetrics(prometheus.DefaultRegisterer)
 
-	repo := postgres.NewMonitorRepository(pool)
+	repo := postgres.NewMonitorRepository(pgPool)
 	monitorService := monitor.NewMonitorService(repo)
-	checkService := check2.NewCheckStoreService(repo)
-	checker := &check2.CheckRunner{}
-	processor := check2.NewCheckProcessor(checker, checkService, m)
-	workerPool := monitor.NewWorkerPool(processor, cfg.MonitorCheckWorkersCount, cfg.MonitorCheckQueueSize, m)
-	scheduler := monitor.NewScheduler(repo, workerPool, time.Duration(cfg.SchedulerTimeInterval)*time.Second)
+
+	checkService := check.NewCheckStoreService(repo)
+	checker := &check.CheckRunner{}
+	checkProcessor := check.NewCheckProcessor(checker, checkService, m)
+
+	monitorDispatcher := pool.NewWorkerPool[monitor.Monitor](checkProcessor, cfg.MonitorCheckWorkersCount, cfg.MonitorCheckQueueSize, m)
+	scheduler := monitor.NewScheduler(repo, monitorDispatcher, time.Duration(cfg.SchedulerTimeInterval)*time.Second)
+
 	handler := apphttp.NewHandler(monitorService, m)
 	router := apphttp.NewRouter(handler)
 
@@ -56,11 +64,13 @@ func New(
 	}
 
 	return &App{
-		cfg:        cfg,
-		server:     server,
-		db:         pool,
-		scheduler:  scheduler,
-		workerPool: workerPool,
+		cfg:       cfg,
+		server:    server,
+		db:        pgPool,
+		scheduler: scheduler,
+		runners: []Runner{
+			monitorDispatcher,
+		},
 	}, nil
 }
 
@@ -75,9 +85,12 @@ func (a *App) Run() error {
 		return a.scheduler.Run(ctx)
 	})
 
-	g.Go(func() error {
-		return a.workerPool.Run(ctx)
-	})
+	for _, runner := range a.runners {
+		r := runner
+		g.Go(func() error {
+			return r.Run(ctx)
+		})
+	}
 
 	g.Go(func() error {
 		err := a.server.ListenAndServe()
@@ -100,7 +113,7 @@ func (a *App) Run() error {
 
 		return nil
 	})
-	
+
 	return g.Wait()
 }
 

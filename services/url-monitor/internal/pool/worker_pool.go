@@ -1,4 +1,4 @@
-package monitor
+package pool
 
 import (
 	"context"
@@ -8,22 +8,23 @@ import (
 	"url-monitor/internal/metrics"
 )
 
-type Processor interface {
-	Process(ctx context.Context, monitor Monitor) error
+type Processor[T any] interface {
+	Process(ctx context.Context, item T) error
 }
-type WorkerPool struct {
-	processor    Processor
+
+type WorkerPool[T any] struct {
+	processor    Processor[T]
 	workersCount int
-	jobsCh       chan Monitor
+	jobsCh       chan T
 	m            *metrics.Metrics
 }
 
-func NewWorkerPool(
-	processor Processor,
+func NewWorkerPool[T any](
+	processor Processor[T],
 	workersCount int,
 	queueSize int,
 	metrics *metrics.Metrics,
-) *WorkerPool {
+) *WorkerPool[T] {
 
 	if processor == nil {
 		panic("nil processor")
@@ -39,15 +40,15 @@ func NewWorkerPool(
 
 	metrics.SetQueueSize(queueSize)
 
-	return &WorkerPool{
+	return &WorkerPool[T]{
 		processor:    processor,
 		workersCount: workersCount,
-		jobsCh:       make(chan Monitor, queueSize),
+		jobsCh:       make(chan T, queueSize),
 		m:            metrics,
 	}
 }
 
-func (wp *WorkerPool) Run(ctx context.Context) error {
+func (wp *WorkerPool[T]) Run(ctx context.Context) error {
 	var wg sync.WaitGroup
 
 	for i := 0; i < wp.workersCount; i++ {
@@ -65,7 +66,7 @@ func (wp *WorkerPool) Run(ctx context.Context) error {
 	return nil
 }
 
-func (wp *WorkerPool) Submit(ctx context.Context, monitor Monitor) error {
+func (wp *WorkerPool[T]) Submit(ctx context.Context, item T) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -73,12 +74,12 @@ func (wp *WorkerPool) Submit(ctx context.Context, monitor Monitor) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case wp.jobsCh <- monitor:
+	case wp.jobsCh <- item:
 		return nil
 	}
 }
 
-func (wp *WorkerPool) runWorker(ctx context.Context, workerID int) {
+func (wp *WorkerPool[T]) runWorker(ctx context.Context, workerID int) {
 	log.Printf("worker %d starting", workerID)
 	defer log.Printf("worker %d stopped", workerID)
 
