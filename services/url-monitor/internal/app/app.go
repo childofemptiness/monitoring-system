@@ -52,7 +52,8 @@ func New(
 	checker := &check.CheckRunner{}
 	checkProcessor := check.NewCheckProcessor(checker, checkService, m)
 
-	monitorDispatcher := pool.NewWorkerPool[monitor.Monitor](checkProcessor, cfg.MonitorCheckWorkersCount, cfg.MonitorCheckQueueSize, m)
+	m.SetQueueSize(cfg.MonitorCheckQueueSize)
+	monitorDispatcher := pool.NewWorkerPool[monitor.Monitor](checkProcessor, cfg.MonitorCheckWorkersCount, cfg.MonitorCheckQueueSize)
 	scheduler := monitor.NewScheduler(repo, monitorDispatcher, time.Duration(cfg.SchedulerTimeInterval)*time.Second)
 
 	handler := apphttp.NewHandler(monitorService, m)

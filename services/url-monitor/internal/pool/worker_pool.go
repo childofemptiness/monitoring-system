@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log"
 	"sync"
-	"url-monitor/internal/metrics"
 )
 
 type Processor[T any] interface {
@@ -16,14 +15,12 @@ type WorkerPool[T any] struct {
 	processor    Processor[T]
 	workersCount int
 	jobsCh       chan T
-	m            *metrics.Metrics
 }
 
 func NewWorkerPool[T any](
 	processor Processor[T],
 	workersCount int,
 	queueSize int,
-	metrics *metrics.Metrics,
 ) *WorkerPool[T] {
 
 	if processor == nil {
@@ -38,13 +35,10 @@ func NewWorkerPool[T any](
 		panic("queueSize must be greater than zero")
 	}
 
-	metrics.SetQueueSize(queueSize)
-
 	return &WorkerPool[T]{
 		processor:    processor,
 		workersCount: workersCount,
 		jobsCh:       make(chan T, queueSize),
-		m:            metrics,
 	}
 }
 
