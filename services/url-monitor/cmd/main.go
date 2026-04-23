@@ -21,20 +21,36 @@ func main() {
 		log.Println("warning: .env file not found")
 	}
 
-	cfg, err := config.Load()
+	appCfg, err := config.LoadAppConfig()
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	monitorChecksCfg, err := config.LoadMonitorChecksConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	outboxEventsCfg, err := config.LoadOutboxEventsConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	cfg := config.Config{
+		AppConfig:           appCfg,
+		MonitorChecksConfig: monitorChecksCfg,
+		OutboxEventsConfig:  outboxEventsCfg,
+	}
+
 	ctx := context.Background()
 
-	application, err := app.New(ctx, ":"+cfg.AppPort, &cfg)
+	application, err := app.New(ctx, ":"+appCfg.AppPort, &cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	go func() {
-		log.Printf("server started on :%s", cfg.AppPort)
+		log.Printf("server started on :%s", cfg.AppConfig)
 
 		if err := application.Run(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal(err)
