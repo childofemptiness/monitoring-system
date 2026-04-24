@@ -38,7 +38,7 @@ func New(
 	addr string,
 	cfg *config.Config,
 ) (*App, error) {
-	pgPool, err := postgres.NewPool(ctx, cfg.DatabaseURL)
+	pgPool, err := postgres.NewPool(ctx, cfg.AppConfig.DatabaseURL)
 	if err != nil {
 		return nil, err
 	}
@@ -52,8 +52,17 @@ func New(
 	checker := &check.CheckRunner{}
 	checkProcessor := check.NewCheckProcessor(checker, checkService, m)
 
-	monitorDispatcher := pool.NewWorkerPool[monitor.Monitor](checkProcessor, cfg.MonitorCheckWorkersCount, cfg.MonitorCheckQueueSize, m)
-	scheduler := monitor.NewScheduler(repo, monitorDispatcher, time.Duration(cfg.SchedulerTimeInterval)*time.Second)
+	m.SetQueueSize(cfg.MonitorChecksConfig.MonitorCheckQueueSize)
+	monitorDispatcher := pool.NewWorkerPool[monitor.Monitor](
+		checkProcessor,
+		cfg.MonitorChecksConfig.MonitorCheckWorkersCount,
+		cfg.MonitorChecksConfig.MonitorCheckQueueSize,
+	)
+	scheduler := monitor.NewScheduler(
+		repo,
+		monitorDispatcher,
+		cfg.MonitorChecksConfig.MonitorSchedulerTimeout,
+	)
 
 	handler := apphttp.NewHandler(monitorService, m)
 	router := apphttp.NewRouter(handler)

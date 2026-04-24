@@ -18,27 +18,27 @@ type Publisher interface {
 	Submit(ctx context.Context, m Monitor) error
 }
 type Scheduler struct {
-	repo         SchedulerRepository
-	publisher    Publisher
-	timeInterval time.Duration
+	repo      SchedulerRepository
+	publisher Publisher
+	timeout   time.Duration
 }
 
 func NewScheduler(
 	schedulerRepo SchedulerRepository,
 	publisher Publisher,
-	timeInterval time.Duration,
+	timeout time.Duration,
 ) *Scheduler {
 	return &Scheduler{
-		repo:         schedulerRepo,
-		publisher:    publisher,
-		timeInterval: timeInterval,
+		repo:      schedulerRepo,
+		publisher: publisher,
+		timeout:   timeout,
 	}
 }
 
 func (s *Scheduler) Run(ctx context.Context) error {
 	log.Printf("scheduler started")
 
-	ticker := time.NewTicker(s.timeInterval)
+	ticker := time.NewTicker(s.timeout)
 	defer ticker.Stop()
 
 	for {
