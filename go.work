@@ -2,6 +2,6 @@ go 1.25.7
 
 use (
 	./contracts
-	./services/url-monitor
 	./services/alert-service
+	./services/url-monitor
 )
