@@ -2,13 +2,15 @@ package app
 
 import (
 	"context"
-	"log"
 	"os/signal"
 	"syscall"
 
 	"github.com/childofemptiness/alert-service/internal/config"
+	inbox "github.com/childofemptiness/alert-service/internal/events"
 	"github.com/childofemptiness/alert-service/internal/storage/postgres"
+	"github.com/childofemptiness/monitoring-system/contracts/events"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/sync/errgroup"
 )
 
 type App struct {
@@ -34,8 +36,6 @@ func New(
 func (a *App) Run() error {
 	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-
-	log.Println("application started")
 
 	<-rootCtx.Done()
 
