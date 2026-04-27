@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"testing"
 	"time"
-	"url-monitor/internal/monitor"
-	"url-monitor/internal/ports"
 
-	"github.com/childofemptiness/monitoring-system/contracts/event"
+	"github.com/childofemptiness/monitoring-system/contracts/events"
+	"github.com/childofemptiness/url-monitor/internal/monitor"
+	"github.com/childofemptiness/url-monitor/internal/ports"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -176,10 +176,10 @@ func TestRepository_CompleteCheckSuccessful(t *testing.T) {
 		FinishedAt:     finishedAt,
 
 		EventID:      uuid.Nil,
-		EventType:    event.EventTypeURLChecked,
+		EventType:    events.EventTypeURLChecked,
 		EventVersion: 1,
 		OccurredAt:   finishedAt,
-		Producer:     event.EventProducerURLMonitor,
+		Producer:     events.EventProducerURLMonitor,
 
 		NextCheckAt: nextCheckAt,
 	}
@@ -298,10 +298,10 @@ func TestRepository_CompleteCheckNonExistentMonitorIDInsertError(t *testing.T) {
 		FinishedAt:     finishedAt,
 
 		EventID:      uuid.Nil,
-		EventType:    event.EventTypeURLChecked,
+		EventType:    events.EventTypeURLChecked,
 		EventVersion: 1,
 		OccurredAt:   finishedAt,
-		Producer:     event.EventProducerURLMonitor,
+		Producer:     events.EventProducerURLMonitor,
 
 		NextCheckAt: nextCheckAt,
 	}
