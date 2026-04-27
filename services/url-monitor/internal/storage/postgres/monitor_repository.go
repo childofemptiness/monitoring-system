@@ -6,8 +6,8 @@ import (
 	"errors"
 	"log"
 	"time"
-	"url-monitor/internal/events"
 	"url-monitor/internal/monitor"
+	"url-monitor/internal/outbox"
 	"url-monitor/internal/ports"
 
 	"github.com/jackc/pgx/v5"
@@ -154,7 +154,7 @@ func (r *Repository) CompleteCheck(ctx context.Context, input ports.CreateCheckW
 		return err
 	}
 
-	payload := events.URLCheckedPayload{
+	payload := outbox.URLCheckedPayload{
 		CheckID:   checkID,
 		MonitorID: input.MonitorID,
 		URL:       input.URL,

@@ -3,7 +3,8 @@ package outbox
 import (
 	"context"
 	"time"
-	"url-monitor/internal/events"
+
+	"github.com/childofemptiness/monitoring-system/contracts/events"
 )
 
 type ClaimOutboxRepository interface {

@@ -2,9 +2,9 @@ package ports
 
 import (
 	"time"
-	"url-monitor/internal/events"
 	"url-monitor/internal/monitor"
 
+	"github.com/childofemptiness/monitoring-system/contracts/events"
 	"github.com/google/uuid"
 )
 

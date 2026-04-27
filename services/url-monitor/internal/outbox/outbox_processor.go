@@ -3,9 +3,9 @@ package outbox
 import (
 	"context"
 	"time"
-	"url-monitor/internal/events"
 	"url-monitor/internal/ports"
 
+	"github.com/childofemptiness/monitoring-system/contracts/events"
 	"github.com/google/uuid"
 )
 

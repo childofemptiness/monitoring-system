@@ -3,10 +3,11 @@ package check
 import (
 	"context"
 	"time"
-	"url-monitor/internal/events"
 	"url-monitor/internal/monitor"
+	"url-monitor/internal/outbox"
 	"url-monitor/internal/ports"
 
+	"github.com/childofemptiness/monitoring-system/contracts/events"
 	"github.com/google/uuid"
 )
 
@@ -46,7 +47,7 @@ func (c *CheckStoreService) SaveCheckResult(
 
 		EventID:      eventID,
 		EventType:    events.EventTypeURLChecked,
-		EventVersion: events.EventVersionURLChecked,
+		EventVersion: outbox.EventVersionURLChecked,
 		Producer:     events.EventProducerURLMonitor,
 		OccurredAt:   check.FinishedAt,
 
