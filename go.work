@@ -4,4 +4,5 @@ use (
 	./contracts
 	./services/alert-service
 	./services/url-monitor
+	./rabbitmq-module
 )
