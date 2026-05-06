@@ -61,6 +61,22 @@ func (r *RabbitMQ) Publish(ctx context.Context, body []byte) error {
 		})
 }
 
+func (r *RabbitMQ) Close() error {
+	if r.channel != nil {
+		if err := r.channel.Close(); err != nil {
+			return err
+		}
+	}
+
+	if r.conn != nil {
+		if err := r.conn.Close(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (r *RabbitMQ) declareQueue() (amqp.Queue, error) {
 	return r.channel.QueueDeclare(
 		r.cfg.QueueName,
