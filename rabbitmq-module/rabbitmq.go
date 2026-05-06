@@ -1,6 +1,8 @@
 package rabbitmq_module
 
 import (
+	"net/url"
+
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -37,6 +39,19 @@ func NewRabbitMQClient(cfg Config) (*RabbitMQ, error) {
 func validateConfig(cfg Config) error {
 	if cfg.ConnectionURL == "" {
 		return ErrEmptyConnectionURL
+	}
+
+	raw, err := url.Parse(cfg.ConnectionURL)
+	if err != nil {
+		return ErrInvalidConnectionURL
+	}
+
+	if raw.Scheme != "amqp" && raw.Scheme != "amqps" {
+		return ErrInvalidConnectionURL
+	}
+
+	if raw.Hostname() == "" || raw.Port() == "" {
+		return ErrInvalidConnectionURL
 	}
 
 	if cfg.QueueName == "" {
