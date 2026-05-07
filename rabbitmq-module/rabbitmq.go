@@ -2,6 +2,7 @@ package rabbitmq_module
 
 import (
 	"context"
+	"errors"
 	"net/url"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -10,6 +11,8 @@ import (
 type amqpChannel interface {
 	QueueDeclare(name string, durable, autoDelete, exclusive, noWait bool, args amqp.Table) (amqp.Queue, error)
 	PublishWithContext(ctx context.Context, exchange, key string, mandatory bool, immediate bool, msg amqp.Publishing) error
+	Consume(queue, consumer string, autoAck, exclusive, noLocal, noWait bool, args amqp.Table) (<-chan amqp.Delivery, error)
+	Qos(prefetchCount, prefetchSize int, global bool) error
 	Close() error
 }
 
@@ -61,6 +64,50 @@ func (r *RabbitMQ) Publish(ctx context.Context, body []byte) error {
 		})
 }
 
+func (r *RabbitMQ) Consume(ctx context.Context, handler func(ctx context.Context, body []byte) error) error {
+	queue, err := r.declareQueue()
+	if err != nil {
+		return err
+	}
+
+	if err := r.channel.Qos(
+		r.cfg.PrefetchCount,
+		r.cfg.PrefetchSize,
+		false,
+	); err != nil {
+		return err
+	}
+
+	deliveries, err := r.channel.Consume(
+		queue.Name,
+		r.cfg.ConsumerTag,
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		return err
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+
+		case delivery, ok := <-deliveries:
+			if !ok {
+				return nil
+			}
+
+			if err := r.handleMessage(ctx, &rabbitDelivery{msg: delivery}, handler); err != nil {
+				return err
+			}
+		}
+	}
+}
+
 func (r *RabbitMQ) Close() error {
 	if r.channel != nil {
 		if err := r.channel.Close(); err != nil {
@@ -72,6 +119,33 @@ func (r *RabbitMQ) Close() error {
 		if err := r.conn.Close(); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func (r *RabbitMQ) handleMessage(
+	ctx context.Context,
+	delivery acknowledger,
+	handler func(ctx context.Context, body []byte) error,
+) error {
+	// TODO: configure DLQ before using non-retryable rejection in production.
+	if err := handler(ctx, delivery.Body()); err != nil {
+		requeue := true
+
+		if errors.Is(err, ErrNonRetryable) {
+			requeue = false
+		}
+
+		if err = delivery.Nack(false, requeue); err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	if err := delivery.Ack(false); err != nil {
+		return err
 	}
 
 	return nil
