@@ -6,11 +6,8 @@ import (
 	"syscall"
 
 	"github.com/childofemptiness/alert-service/internal/config"
-	inbox "github.com/childofemptiness/alert-service/internal/events"
 	"github.com/childofemptiness/alert-service/internal/storage/postgres"
-	"github.com/childofemptiness/monitoring-system/contracts/events"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"golang.org/x/sync/errgroup"
 )
 
 type App struct {
