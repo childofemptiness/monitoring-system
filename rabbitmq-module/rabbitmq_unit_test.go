@@ -13,7 +13,7 @@ import (
 type fakeChannel struct {
 	declareCalled            bool
 	publishWithContextCalled bool
-	consumeCalled            bool
+	consumeWithContextCalled bool
 	qosCalled                bool
 	closeCalled              bool
 
@@ -26,7 +26,7 @@ type fakeChannel struct {
 
 	declareErr            error
 	publishWithContextErr error
-	consumeErr            error
+	consumeWithContextErr error
 	qosErr                error
 	closeErr              error
 
@@ -83,9 +83,10 @@ func (c *fakeChannel) PublishWithContext(ctx context.Context, exchange, key stri
 	return c.publishWithContextErr
 }
 
-func (c *fakeChannel) Consume(queue, consumer string, autoAck, exclusive, noLocal, noWait bool, args amqp.Table) (<-chan amqp.Delivery, error) {
-	c.consumeCalled = true
-	return c.consumeDeliveries, c.consumeErr
+func (c *fakeChannel) ConsumeWithContext(ctx context.Context, queue, consumer string, autoAck, exclusive, noLocal, noWait bool, args amqp.Table) (<-chan amqp.Delivery, error) {
+	c.consumeWithContextCalled = true
+	c.gotCtx = ctx
+	return c.consumeDeliveries, c.consumeWithContextErr
 }
 
 func (c *fakeChannel) Qos(prefetchCount int, prefetchSize int, global bool) error {
@@ -292,7 +293,7 @@ func TestRabbitMQ_ConsumeQueueDeclareError(t *testing.T) {
 	require.ErrorIs(t, err, expectedErr)
 	require.True(t, fake.declareCalled, "declare was not called")
 	require.False(t, fake.qosCalled, "qos was not called")
-	require.False(t, fake.consumeCalled, "consume shouldn't have been called")
+	require.False(t, fake.consumeWithContextCalled, "consume shouldn't have been called")
 }
 
 func TestRabbitMQ_ConsumeQosError(t *testing.T) {
@@ -311,14 +312,14 @@ func TestRabbitMQ_ConsumeQosError(t *testing.T) {
 	require.ErrorIs(t, err, expectedErr)
 	require.True(t, fake.declareCalled, "declare was not called")
 	require.True(t, fake.qosCalled, "qos was not called")
-	require.False(t, fake.consumeCalled, "consume shouldn't have been called")
+	require.False(t, fake.consumeWithContextCalled, "consume shouldn't have been called")
 	require.Equal(t, client.cfg.QueueName, fake.declaredQueue)
 }
 
-func TestRabbitMQ_ConsumeConsumeError(t *testing.T) {
+func TestRabbitMQ_ConsumeConsumeWithContextError(t *testing.T) {
 	fake := &fakeChannel{}
 	expectedErr := errors.New("consume call failed")
-	fake.consumeErr = expectedErr
+	fake.consumeWithContextErr = expectedErr
 
 	client := &RabbitMQ{
 		cfg:     testConfig(),
@@ -331,7 +332,7 @@ func TestRabbitMQ_ConsumeConsumeError(t *testing.T) {
 	require.ErrorIs(t, err, expectedErr)
 	require.True(t, fake.declareCalled, "declare was not called")
 	require.True(t, fake.qosCalled, "qos was not called")
-	require.True(t, fake.consumeCalled, "consume was not called")
+	require.True(t, fake.consumeWithContextCalled, "consume was not called")
 	require.Equal(t, client.cfg.QueueName, fake.declaredQueue)
 	require.Equal(t, client.cfg.PrefetchCount, fake.prefetchedCount)
 	require.Equal(t, client.cfg.PrefetchSize, fake.prefetchedSize)

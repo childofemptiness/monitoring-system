@@ -11,7 +11,7 @@ import (
 type amqpChannel interface {
 	QueueDeclare(name string, durable, autoDelete, exclusive, noWait bool, args amqp.Table) (amqp.Queue, error)
 	PublishWithContext(ctx context.Context, exchange, key string, mandatory bool, immediate bool, msg amqp.Publishing) error
-	Consume(queue, consumer string, autoAck, exclusive, noLocal, noWait bool, args amqp.Table) (<-chan amqp.Delivery, error)
+	ConsumeWithContext(ctx context.Context, queue, consumer string, autoAck, exclusive, noLocal, noWait bool, args amqp.Table) (<-chan amqp.Delivery, error)
 	Qos(prefetchCount, prefetchSize int, global bool) error
 	Close() error
 }
@@ -78,7 +78,8 @@ func (r *RabbitMQ) Consume(ctx context.Context, handler func(ctx context.Context
 		return err
 	}
 
-	deliveries, err := r.channel.Consume(
+	deliveries, err := r.channel.ConsumeWithContext(
+		ctx,
 		queue.Name,
 		r.cfg.ConsumerTag,
 		false,
