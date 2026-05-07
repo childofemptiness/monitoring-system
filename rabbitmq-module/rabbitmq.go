@@ -1,14 +1,21 @@
 package rabbitmq_module
 
 import (
+	"context"
 	"net/url"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
+type amqpChannel interface {
+	QueueDeclare(name string, durable, autoDelete, exclusive, noWait bool, args amqp.Table) (amqp.Queue, error)
+	PublishWithContext(ctx context.Context, exchange, key string, mandatory bool, immediate bool, msg amqp.Publishing) error
+	Close() error
+}
+
 type RabbitMQ struct {
 	conn    *amqp.Connection
-	channel *amqp.Channel
+	channel amqpChannel
 	cfg     Config
 }
 
@@ -34,6 +41,35 @@ func NewRabbitMQClient(cfg Config) (*RabbitMQ, error) {
 		channel: channel,
 		cfg:     cfg,
 	}, nil
+}
+
+func (r *RabbitMQ) Publish(ctx context.Context, body []byte) error {
+	if _, err := r.declareQueue(); err != nil {
+		return err
+	}
+
+	return r.channel.PublishWithContext(
+		ctx,
+		"",
+		r.cfg.QueueName,
+		false,
+		false,
+		amqp.Publishing{
+			ContentType:  "application/json",
+			DeliveryMode: amqp.Persistent,
+			Body:         body,
+		})
+}
+
+func (r *RabbitMQ) declareQueue() (amqp.Queue, error) {
+	return r.channel.QueueDeclare(
+		r.cfg.QueueName,
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
 }
 
 func validateConfig(cfg Config) error {
