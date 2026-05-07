@@ -11,18 +11,58 @@ import (
 )
 
 type fakeChannel struct {
-	declareCalled bool
-	publishCalled bool
-	closeCalled   bool
+	declareCalled            bool
+	publishWithContextCalled bool
+	consumeCalled            bool
+	qosCalled                bool
+	closeCalled              bool
 
-	declaredQueue string
-	publishedMsg  amqp.Publishing
+	declaredQueue   string
+	prefetchedCount int
+	prefetchedSize  int
+	publishedMsg    amqp.Publishing
 
 	gotCtx context.Context
 
-	declareErr error
-	publishErr error
-	closeErr   error
+	declareErr            error
+	publishWithContextErr error
+	consumeErr            error
+	qosErr                error
+	closeErr              error
+
+	consumeDeliveries <-chan amqp.Delivery
+	handledDelivery   rabbitDelivery
+}
+
+type fakeDelivery struct {
+	ackCalled  bool
+	nackCalled bool
+
+	ackMultiple  bool
+	nackMultiple bool
+	nackRequeue  bool
+
+	ackErr  error
+	nackErr error
+
+	body []byte
+}
+
+func (d *fakeDelivery) Body() []byte {
+	return d.body
+}
+
+func (d *fakeDelivery) Ack(multiple bool) error {
+	d.ackCalled = true
+	d.ackMultiple = multiple
+	return d.ackErr
+}
+
+func (d *fakeDelivery) Nack(multiple, requeue bool) error {
+	d.nackCalled = true
+	d.nackMultiple = multiple
+	d.nackRequeue = requeue
+	return d.nackErr
 }
 
 func (c *fakeChannel) QueueDeclare(name string, durable, autoDelete, exclusive, noWait bool, args amqp.Table) (amqp.Queue, error) {
@@ -32,7 +72,7 @@ func (c *fakeChannel) QueueDeclare(name string, durable, autoDelete, exclusive, 
 }
 
 func (c *fakeChannel) PublishWithContext(ctx context.Context, exchange, key string, mandatory, immediate bool, msg amqp.Publishing) error {
-	c.publishCalled = true
+	c.publishWithContextCalled = true
 	c.gotCtx = ctx
 	c.publishedMsg = msg
 
@@ -40,7 +80,19 @@ func (c *fakeChannel) PublishWithContext(ctx context.Context, exchange, key stri
 		return c.gotCtx.Err()
 	}
 
-	return c.publishErr
+	return c.publishWithContextErr
+}
+
+func (c *fakeChannel) Consume(queue, consumer string, autoAck, exclusive, noLocal, noWait bool, args amqp.Table) (<-chan amqp.Delivery, error) {
+	c.consumeCalled = true
+	return c.consumeDeliveries, c.consumeErr
+}
+
+func (c *fakeChannel) Qos(prefetchCount int, prefetchSize int, global bool) error {
+	c.qosCalled = true
+	c.prefetchedCount = prefetchCount
+	c.prefetchedSize = prefetchSize
+	return c.qosErr
 }
 
 func (c *fakeChannel) Close() error {
@@ -137,7 +189,7 @@ func TestRabbitMQ_ValidateConfig(t *testing.T) {
 	}
 }
 
-func TestRabbitMQ_PublishMessageSuccess(t *testing.T) {
+func TestRabbitMQ_PublishSuccess(t *testing.T) {
 	cfg := Config{
 		ConnectionURL: "amqp://guest:guest@localhost:5673/",
 		QueueName:     "test.publish.queue",
@@ -151,66 +203,227 @@ func TestRabbitMQ_PublishMessageSuccess(t *testing.T) {
 	}
 
 	body := []byte(`{"event": "test"}`)
+	ctx := context.Background()
 
-	err := client.Publish(context.Background(), body)
+	err := client.Publish(ctx, body)
 
 	require.NoError(t, err)
-	require.Truef(t, fake.declareCalled, "declare was not called")
-	require.Truef(t, fake.publishCalled, "publish was not called")
+	require.True(t, fake.declareCalled, "declare was not called")
+	require.True(t, fake.publishWithContextCalled, "publish was not called")
 	require.Equal(t, cfg.QueueName, fake.declaredQueue)
+	require.Equal(t, ctx, fake.gotCtx)
 	require.Equal(t, body, fake.publishedMsg.Body)
 }
 
-func TestRabbitMQ_PublishMessageCancelled(t *testing.T) {
-	cfg := Config{
-		ConnectionURL: "amqp://guest:guest@localhost:5673/",
-		QueueName:     "test.publish.queue",
-		PrefetchCount: 1,
-		PrefetchSize:  0,
+func TestRabbitMQ_PublishDeclareQueueError(t *testing.T) {
+	expectedErr := errors.New("declare queue error")
+	fake := &fakeChannel{}
+	fake.declareErr = expectedErr
+
+	client := &RabbitMQ{
+		channel: fake,
 	}
 
+	err := client.Publish(context.Background(), []byte(`{"event": "test"}`))
+	require.ErrorIs(t, expectedErr, err)
+	require.True(t, fake.declareCalled, "declare was not called")
+}
+
+func TestRabbitMQ_PublishCancelled(t *testing.T) {
 	fake := &fakeChannel{}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
 	client := &RabbitMQ{
-		cfg:     cfg,
+		cfg:     testConfig(),
 		channel: fake,
 	}
 
 	body := []byte(`{"event": "test"}`)
 	err := client.Publish(ctx, body)
-	require.Error(t, err)
-
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("publish should have canceled the context")
-	}
+	require.Error(t, err, context.Canceled, "publish should have canceled the context")
 }
 
-func TestRabbitMQ_PublishMessageTimeout(t *testing.T) {
-	cfg := Config{
-		ConnectionURL: "amqp://guest:guest@localhost:5673/",
-		QueueName:     "test.publish.queue",
-		PrefetchCount: 1,
-		PrefetchSize:  0,
-	}
-
+func TestRabbitMQ_PublishTimeout(t *testing.T) {
 	fake := &fakeChannel{}
 
 	ctx, cancel := context.WithTimeout(context.Background(), -time.Second)
 	defer cancel()
 
 	client := &RabbitMQ{
-		cfg:     cfg,
+		cfg:     testConfig(),
 		channel: fake,
 	}
 
 	body := []byte(`{"event": "test"}`)
 
 	err := client.Publish(ctx, body)
-	require.Error(t, err)
+	require.Error(t, err, context.DeadlineExceeded, "publish should have canceled the context")
+}
 
-	if !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("publish should have canceled the context")
+func TestRabbitMQ_PublishPublishWithContextError(t *testing.T) {
+	expectedErr := errors.New("publish with context error")
+	fake := &fakeChannel{}
+	fake.publishWithContextErr = expectedErr
+
+	client := &RabbitMQ{
+		channel: fake,
+	}
+
+	err := client.Publish(context.Background(), []byte(`{"event": "test"}`))
+	require.ErrorIs(t, expectedErr, err)
+	require.True(t, fake.declareCalled, "declare was not called")
+	require.True(t, fake.publishWithContextCalled, "publish was not called")
+}
+
+func TestRabbitMQ_ConsumeQueueDeclareError(t *testing.T) {
+	fake := &fakeChannel{}
+	expectedErr := errors.New("queue declare failed")
+	fake.declareErr = expectedErr
+
+	client := &RabbitMQ{
+		cfg:     testConfig(),
+		channel: fake,
+	}
+
+	err := client.Consume(context.Background(), func(ctx context.Context, body []byte) error {
+		return nil
+	})
+	require.ErrorIs(t, err, expectedErr)
+	require.True(t, fake.declareCalled, "declare was not called")
+	require.False(t, fake.qosCalled, "qos was not called")
+	require.False(t, fake.consumeCalled, "consume shouldn't have been called")
+}
+
+func TestRabbitMQ_ConsumeQosError(t *testing.T) {
+	fake := &fakeChannel{}
+	expectedErr := errors.New("qos call failed")
+	fake.qosErr = expectedErr
+
+	client := &RabbitMQ{
+		cfg:     testConfig(),
+		channel: fake,
+	}
+
+	err := client.Consume(context.Background(), func(ctx context.Context, body []byte) error {
+		return nil
+	})
+	require.ErrorIs(t, err, expectedErr)
+	require.True(t, fake.declareCalled, "declare was not called")
+	require.True(t, fake.qosCalled, "qos was not called")
+	require.False(t, fake.consumeCalled, "consume shouldn't have been called")
+	require.Equal(t, client.cfg.QueueName, fake.declaredQueue)
+}
+
+func TestRabbitMQ_ConsumeConsumeError(t *testing.T) {
+	fake := &fakeChannel{}
+	expectedErr := errors.New("consume call failed")
+	fake.consumeErr = expectedErr
+
+	client := &RabbitMQ{
+		cfg:     testConfig(),
+		channel: fake,
+	}
+
+	err := client.Consume(context.Background(), func(ctx context.Context, body []byte) error {
+		return nil
+	})
+	require.ErrorIs(t, err, expectedErr)
+	require.True(t, fake.declareCalled, "declare was not called")
+	require.True(t, fake.qosCalled, "qos was not called")
+	require.True(t, fake.consumeCalled, "consume was not called")
+	require.Equal(t, client.cfg.QueueName, fake.declaredQueue)
+	require.Equal(t, client.cfg.PrefetchCount, fake.prefetchedCount)
+	require.Equal(t, client.cfg.PrefetchSize, fake.prefetchedSize)
+}
+
+func TestRabbitMQ_HandleMessageNackError(t *testing.T) {
+	handleErr := errors.New("handle call failed")
+	expectedErr := errors.New("message nack failed")
+
+	client := &RabbitMQ{}
+	fake := fakeDelivery{
+		body: []byte(`{"event": "test"}`),
+	}
+	fake.nackErr = expectedErr
+
+	err := client.handleMessage(context.Background(), &fake, func(ctx context.Context, body []byte) error {
+		return handleErr
+	})
+	require.ErrorIs(t, err, expectedErr)
+	require.True(t, fake.nackCalled, "Nack was not called")
+	require.False(t, fake.ackCalled, "Ack shouldn't have been called")
+}
+
+func TestRabbitMQ_HandleMessageNackSuccess(t *testing.T) {
+	handlerErr := errors.New("handle call failed")
+
+	client := &RabbitMQ{}
+	fake := &fakeDelivery{
+		body: []byte(`{"event": "test"}`),
+	}
+
+	err := client.handleMessage(context.Background(), fake, func(ctx context.Context, body []byte) error {
+		return handlerErr
+	})
+	require.Nil(t, err)
+	require.True(t, fake.nackCalled, "Nack was not called")
+	require.False(t, fake.nackMultiple, "Nack multiple wasn't false")
+	require.True(t, fake.nackRequeue, "Nack requeue wasn't true")
+	require.False(t, fake.ackCalled, "Ack shouldn't have been called")
+}
+
+func TestRabbitMQ_HandleMessageErrNonRetryable(t *testing.T) {
+	client := &RabbitMQ{}
+	fake := &fakeDelivery{
+		body: []byte(`{"event": "test"}`),
+	}
+
+	err := client.handleMessage(context.Background(), fake, func(ctx context.Context, body []byte) error {
+		return ErrNonRetryable
+	})
+	require.Nil(t, err)
+	require.True(t, fake.nackCalled, "Nack was not called")
+	require.False(t, fake.nackMultiple, "Nack multiple wasn't false")
+	require.False(t, fake.nackRequeue, "Nack requeue wasn't false")
+	require.False(t, fake.ackCalled, "Ack shouldn't have been called")
+}
+
+func TestRabbitMQ_HandleMessageAckSuccess(t *testing.T) {
+	fake := &fakeDelivery{
+		body: []byte(`{"event": "test"}`),
+	}
+	client := &RabbitMQ{}
+
+	err := client.handleMessage(context.Background(), fake, func(ctx context.Context, body []byte) error {
+		return nil
+	})
+	require.Nil(t, err)
+	require.False(t, fake.nackCalled, "Nack shouldn't have been called")
+	require.True(t, fake.ackCalled, "Ack was not called")
+	require.False(t, fake.ackMultiple, "Ack multiple wasn't false")
+}
+
+func TestRabbitMQ_HandleMessageAckError(t *testing.T) {
+	client := &RabbitMQ{}
+	fake := fakeDelivery{
+		body: []byte(`{"event": "test"}`),
+	}
+	fake.ackErr = errors.New("ack failed")
+
+	err := client.handleMessage(context.Background(), &fake, func(ctx context.Context, body []byte) error {
+		return nil
+	})
+	require.ErrorIs(t, err, fake.ackErr)
+	require.False(t, fake.nackCalled, "Nack shouldn't have been called")
+	require.True(t, fake.ackCalled, "ack shouldn't have been called")
+}
+
+func testConfig() Config {
+	return Config{
+		ConnectionURL: "amqp://guest:guest@localhost:5673/",
+		QueueName:     "test.queue",
+		PrefetchCount: 1,
+		PrefetchSize:  0,
 	}
 }
