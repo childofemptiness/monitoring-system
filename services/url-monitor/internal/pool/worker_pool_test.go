@@ -7,9 +7,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-	"url-monitor/internal/metrics"
-
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -53,8 +50,7 @@ func (fp *fakeProcessor) Process(ctx context.Context, item TestItem) error {
 
 func TestWorkerPool_Submit_Success(t *testing.T) {
 	processor := &fakeProcessor{}
-	reg := prometheus.NewRegistry()
-	wp := NewWorkerPool(processor, workersCount, queueSize, metrics.NewMetrics(reg))
+	wp := NewWorkerPool(processor, workersCount, queueSize)
 
 	item := newTestItem()
 	ctx := context.Background()
@@ -72,8 +68,7 @@ func TestWorkerPool_Submit_Success(t *testing.T) {
 
 func TestWorkerPool_Submit_ContextCanceledError(t *testing.T) {
 	processor := &fakeProcessor{}
-	reg := prometheus.NewRegistry()
-	wp := NewWorkerPool(processor, workersCount, queueSize, metrics.NewMetrics(reg))
+	wp := NewWorkerPool(processor, workersCount, queueSize)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -86,8 +81,7 @@ func TestWorkerPool_Submit_ContextCanceledError(t *testing.T) {
 
 func TestWorkerPool_Submit_ContextDeadlineExceededError(t *testing.T) {
 	processor := &fakeProcessor{}
-	reg := prometheus.NewRegistry()
-	wp := NewWorkerPool(processor, workersCount, queueSize, metrics.NewMetrics(reg))
+	wp := NewWorkerPool(processor, workersCount, queueSize)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
@@ -109,8 +103,7 @@ func TestWorkerPool_Run_Success(t *testing.T) {
 	items := newTestItems()
 
 	processor := newFakeProcessor(len(items))
-	reg := prometheus.NewRegistry()
-	wp := NewWorkerPool(processor, workersCount, queueSize, metrics.NewMetrics(reg))
+	wp := NewWorkerPool(processor, workersCount, queueSize)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -157,8 +150,7 @@ func TestWorkerPool_Run_Success(t *testing.T) {
 
 func TestWorkerPool_Run_Timeout(t *testing.T) {
 	processor := newFakeProcessor(3)
-	reg := prometheus.NewRegistry()
-	wp := NewWorkerPool(processor, workersCount, queueSize, metrics.NewMetrics(reg))
+	wp := NewWorkerPool(processor, workersCount, queueSize)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
