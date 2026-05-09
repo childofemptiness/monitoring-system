@@ -2,30 +2,58 @@ package config
 
 import "time"
 
+const (
+	maxAttempts       = "OUTBOX_MAX_ATTEMPTS"
+	retryBackoff      = "OUTBOX_RETRY_BACKOFF"
+	fetchInterval     = "OUTBOX_FETCH_INTERVAL"
+	processingTimeout = "OUTBOX_PROCESSING_TIMEOUT"
+	fetchEventsLimit  = "OUTBOX_EVENTS_LIMIT"
+	workersCount      = "OUTBOX_WORKERS_COUNT"
+	queueSize         = "OUTBOX_QUEUE_SIZE"
+)
+
 type OutboxEventsConfig struct {
-	FetchInterval     time.Duration
-	ProcessingTimeout time.Duration
-	RetryBackoff      time.Duration
 	MaxAttempts       int
+	RetryBackoff      time.Duration
+	FetchInterval     time.Duration
+	FetchEventsLimit  int
+	ProcessingTimeout time.Duration
+	WorkersCount      int
+	QueueSize         int
 }
 
 func LoadOutboxEventsConfig() (OutboxEventsConfig, error) {
-	fetchInterval, err := getEnvDuration("MONITOR_FETCH_INTERVAL", "2s")
+	fetchInterval, err := getEnvDuration(fetchInterval, "2s")
 	if err != nil {
 		return OutboxEventsConfig{}, err
 	}
 
-	processingTimeout, err := getEnvDuration("MONITOR_PROCESSING_TIMEOUT", "2s")
+	processingTimeout, err := getEnvDuration(processingTimeout, "2s")
 	if err != nil {
 		return OutboxEventsConfig{}, err
 	}
 
-	retryBackoff, err := getEnvDuration("MONITOR_RETRY_BACKOFF", "1s")
+	retryBackoff, err := getEnvDuration(retryBackoff, "1s")
 	if err != nil {
 		return OutboxEventsConfig{}, err
 	}
 
-	maxAttempts, err := getEnvInt("MONITOR_MAX_ATTEMPTS", "5")
+	fetchEventsLimit, err := getEnvInt(fetchEventsLimit, "10")
+	if err != nil {
+		return OutboxEventsConfig{}, err
+	}
+
+	workersCount, err := getEnvInt(workersCount, "10")
+	if err != nil {
+		return OutboxEventsConfig{}, err
+	}
+
+	queueSize, err := getEnvInt(queueSize, "10")
+	if err != nil {
+		return OutboxEventsConfig{}, err
+	}
+
+	maxAttempts, err := getEnvInt(maxAttempts, "5")
 	if err != nil {
 		return OutboxEventsConfig{}, err
 	}
@@ -34,6 +62,9 @@ func LoadOutboxEventsConfig() (OutboxEventsConfig, error) {
 		FetchInterval:     fetchInterval,
 		ProcessingTimeout: processingTimeout,
 		RetryBackoff:      retryBackoff,
+		FetchEventsLimit:  fetchEventsLimit,
 		MaxAttempts:       maxAttempts,
+		WorkersCount:      workersCount,
+		QueueSize:         queueSize,
 	}, nil
 }
