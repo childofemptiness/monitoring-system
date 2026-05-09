@@ -2,6 +2,7 @@ package config
 
 type Config struct {
 	AppConfig           AppConfig
-	MonitorChecksConfig MonitorChecksConfig
+	RabbitMQConfig      RabbitMQConfig
 	OutboxEventsConfig  OutboxEventsConfig
+	MonitorChecksConfig MonitorChecksConfig
 }
