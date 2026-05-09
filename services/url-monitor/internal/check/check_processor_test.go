@@ -7,8 +7,9 @@ import (
 	"reflect"
 	"testing"
 	"time"
-	"url-monitor/internal/metrics"
-	"url-monitor/internal/monitor"
+
+	"github.com/childofemptiness/url-monitor/internal/metrics"
+	"github.com/childofemptiness/url-monitor/internal/monitor"
 
 	"github.com/prometheus/client_golang/prometheus"
 )

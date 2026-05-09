@@ -11,7 +11,8 @@ import (
 	"os"
 	"syscall"
 	"time"
-	"url-monitor/internal/monitor"
+
+	"github.com/childofemptiness/url-monitor/internal/monitor"
 )
 
 type CheckRunner struct{}

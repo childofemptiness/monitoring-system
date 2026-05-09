@@ -5,7 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"url-monitor/internal/monitor"
+
+	"github.com/childofemptiness/url-monitor/internal/monitor"
 )
 
 func TestCheckerChecker_OK(t *testing.T) {
