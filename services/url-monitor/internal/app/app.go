@@ -8,13 +8,14 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-	"url-monitor/internal/check"
-	"url-monitor/internal/config"
-	apphttp "url-monitor/internal/http"
-	"url-monitor/internal/metrics"
-	"url-monitor/internal/monitor"
-	"url-monitor/internal/pool"
-	"url-monitor/internal/storage/postgres"
+
+	"github.com/childofemptiness/url-monitor/internal/check"
+	"github.com/childofemptiness/url-monitor/internal/config"
+	apphttp "github.com/childofemptiness/url-monitor/internal/http"
+	"github.com/childofemptiness/url-monitor/internal/metrics"
+	"github.com/childofemptiness/url-monitor/internal/monitor"
+	"github.com/childofemptiness/url-monitor/internal/pool"
+	"github.com/childofemptiness/url-monitor/internal/storage/postgres"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
@@ -29,7 +30,7 @@ type App struct {
 	cfg       *config.Config
 	server    *http.Server
 	db        *pgxpool.Pool
-	scheduler *monitor.Scheduler
+	scheduler *monitor.MonitorFetcher
 	runners   []Runner
 }
 
@@ -58,10 +59,10 @@ func New(
 		cfg.MonitorChecksConfig.MonitorCheckWorkersCount,
 		cfg.MonitorChecksConfig.MonitorCheckQueueSize,
 	)
-	scheduler := monitor.NewScheduler(
+	monitorFetcher := monitor.NewMonitorFetcher(
 		repo,
+		cfg.MonitorChecksConfig,
 		monitorDispatcher,
-		cfg.MonitorChecksConfig.MonitorSchedulerTimeout,
 	)
 
 	handler := apphttp.NewHandler(monitorService, m)
@@ -76,7 +77,7 @@ func New(
 		cfg:       cfg,
 		server:    server,
 		db:        pgPool,
-		scheduler: scheduler,
+		scheduler: monitorFetcher,
 		runners: []Runner{
 			monitorDispatcher,
 		},
