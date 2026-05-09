@@ -3,9 +3,10 @@ package check
 import (
 	"context"
 	"time"
-	"url-monitor/internal/monitor"
-	"url-monitor/internal/outbox"
-	"url-monitor/internal/ports"
+
+	"github.com/childofemptiness/url-monitor/internal/monitor"
+	"github.com/childofemptiness/url-monitor/internal/outbox"
+	"github.com/childofemptiness/url-monitor/internal/ports"
 
 	"github.com/childofemptiness/monitoring-system/contracts/events"
 	"github.com/google/uuid"

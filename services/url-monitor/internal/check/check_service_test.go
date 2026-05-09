@@ -7,8 +7,9 @@ import (
 	"reflect"
 	"testing"
 	"time"
-	"url-monitor/internal/monitor"
-	"url-monitor/internal/ports"
+
+	"github.com/childofemptiness/url-monitor/internal/monitor"
+	"github.com/childofemptiness/url-monitor/internal/ports"
 )
 
 type fakeCheckRepository struct {
