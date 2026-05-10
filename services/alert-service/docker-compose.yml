@@ -1,9 +1,8 @@
 version: "3.9"
 
 services:
-  postgres:
+  alert-service-postgres:
     image: postgres:16
-    container_name: alert-service-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: alert
@@ -12,7 +11,7 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - alert_service_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U alert -d alert"]
       interval: 5s
@@ -20,4 +19,4 @@ services:
       retries: 5
 
 volumes:
-  postgres_data:
+  alert_service_postgres_data:
