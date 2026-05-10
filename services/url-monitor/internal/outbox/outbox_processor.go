@@ -3,7 +3,8 @@ package outbox
 import (
 	"context"
 	"time"
-	"url-monitor/internal/ports"
+
+	"github.com/childofemptiness/url-monitor/internal/ports"
 
 	"github.com/childofemptiness/monitoring-system/contracts/events"
 	"github.com/google/uuid"
