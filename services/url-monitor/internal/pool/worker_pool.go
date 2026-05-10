@@ -3,7 +3,6 @@ package pool
 import (
 	"context"
 	"errors"
-	"log"
 	"sync"
 )
 
@@ -74,25 +73,20 @@ func (wp *WorkerPool[T]) Submit(ctx context.Context, item T) error {
 }
 
 func (wp *WorkerPool[T]) runWorker(ctx context.Context, workerID int) {
-	log.Printf("worker %d starting", workerID)
-	defer log.Printf("worker %d stopped", workerID)
-
 	for {
 		select {
 		case <-ctx.Done():
 			return
 
-		case monitor, ok := <-wp.jobsCh:
+		case item, ok := <-wp.jobsCh:
 			if !ok {
 				return
 			}
 
-			if err := wp.processor.Process(ctx, monitor); err != nil {
+			if err := wp.processor.Process(ctx, item); err != nil {
 				if errors.Is(err, context.Canceled) {
 					return
 				}
-
-				log.Printf("worker %d: failed to process monitor: %v", workerID, err)
 			}
 		}
 	}
