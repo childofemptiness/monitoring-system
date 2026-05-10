@@ -1,0 +1,7 @@
+name: monitoring-system
+
+include:
+  - ./services/url-monitor/compose.yml
+  - ./services/alert-service/compose.yml
+  - ./deploy/compose/rabbitmq.yml
+  - ./deploy/compose/observability.yml
