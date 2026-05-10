@@ -50,7 +50,7 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("server started on :%s", cfg.AppConfig)
+		log.Printf("server started on :%s", cfg.AppConfig.AppPort)
 
 		if err := application.Run(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatal(err)
