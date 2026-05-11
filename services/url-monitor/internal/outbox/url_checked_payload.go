@@ -2,7 +2,8 @@ package outbox
 
 import (
 	"time"
-	"url-monitor/internal/monitor"
+
+	"github.com/childofemptiness/url-monitor/internal/monitor"
 )
 
 const EventVersionURLChecked = 1
