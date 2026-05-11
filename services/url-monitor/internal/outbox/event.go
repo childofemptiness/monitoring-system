@@ -9,10 +9,18 @@ import (
 )
 
 type Event struct {
-	EventID      uuid.UUID
-	EventType    events.EventType
-	EventVersion int
-	OccurredAt   time.Time
-	Producer     events.EventProducer
-	Payload      json.RawMessage
+	EventID             uuid.UUID
+	EventType           events.EventType
+	EventVersion        int
+	Status              events.EventStatus
+	Producer            events.EventProducer
+	AttemptsCount       int
+	LastError           error
+	OccurredAt          time.Time
+	CreatedAt           time.Time
+	LastAttemptAt       *time.Time
+	NextAttemptAt       time.Time
+	ProcessingStartedAt *time.Time
+	PublishedAt         *time.Time
+	Payload             json.RawMessage
 }
