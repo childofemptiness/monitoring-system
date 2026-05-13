@@ -7,8 +7,8 @@ import (
 )
 
 type MarkFailedPublishInput struct {
-	eventID       uuid.UUID
-	lastError     string
-	lastAttemptAt time.Time
-	nextAttemptAt *time.Time
+	EventID       uuid.UUID
+	LastError     string
+	LastAttemptAt *time.Time
+	NextAttemptAt time.Time
 }

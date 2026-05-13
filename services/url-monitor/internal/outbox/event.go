@@ -15,7 +15,7 @@ type Event struct {
 	Status              events.EventStatus
 	Producer            events.EventProducer
 	AttemptsCount       int
-	LastError           error
+	LastError           string
 	OccurredAt          time.Time
 	CreatedAt           time.Time
 	LastAttemptAt       *time.Time
