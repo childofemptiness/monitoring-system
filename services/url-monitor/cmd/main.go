@@ -9,8 +9,9 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-	"url-monitor/internal/app"
-	"url-monitor/internal/config"
+
+	"github.com/childofemptiness/url-monitor/internal/app"
+	"github.com/childofemptiness/url-monitor/internal/config"
 
 	"github.com/joho/godotenv"
 )
