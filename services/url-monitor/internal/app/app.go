@@ -9,11 +9,14 @@ import (
 	"syscall"
 	"time"
 
+	rabbitmqmodule "github.com/childofemptiness/rabbitmq-module"
+	"github.com/childofemptiness/url-monitor/internal/adapters/rabbitmq"
 	"github.com/childofemptiness/url-monitor/internal/check"
 	"github.com/childofemptiness/url-monitor/internal/config"
 	apphttp "github.com/childofemptiness/url-monitor/internal/http"
 	"github.com/childofemptiness/url-monitor/internal/metrics"
 	"github.com/childofemptiness/url-monitor/internal/monitor"
+	"github.com/childofemptiness/url-monitor/internal/outbox"
 	"github.com/childofemptiness/url-monitor/internal/pool"
 	"github.com/childofemptiness/url-monitor/internal/storage/postgres"
 
@@ -26,12 +29,16 @@ type Runner interface {
 	Run(ctx context.Context) error
 }
 
+type Scheduler interface {
+	Run(ctx context.Context) error
+}
+
 type App struct {
-	cfg       *config.Config
-	server    *http.Server
-	db        *pgxpool.Pool
-	scheduler *monitor.MonitorFetcher
-	runners   []Runner
+	cfg        *config.Config
+	server     *http.Server
+	db         *pgxpool.Pool
+	schedulers []Scheduler
+	runners    []Runner
 }
 
 func New(
@@ -65,6 +72,17 @@ func New(
 		monitorDispatcher,
 	)
 
+	eventRepo := postgres.NewEventRepository(pgPool)
+	eventService := outbox.NewOutboxEventService(eventRepo)
+	messagePublisher, err := rabbitmqmodule.NewRabbitMQClient(cfg.RabbitMQConfig.Wrap())
+	if err != nil {
+		return nil, err
+	}
+	eventPublisher := rabbitmq.NewRabbitPublisherAdapter(messagePublisher)
+	eventProcessor := outbox.NewEventProcessor(cfg.OutboxEventsConfig, eventService, eventPublisher)
+	eventDispatcher := pool.NewWorkerPool[outbox.Event](eventProcessor, cfg.OutboxEventsConfig.WorkersCount, cfg.OutboxEventsConfig.QueueSize)
+	eventFetcher := outbox.NewEventFetcher(eventRepo, eventDispatcher, cfg.OutboxEventsConfig)
+
 	handler := apphttp.NewHandler(monitorService, m)
 	router := apphttp.NewRouter(handler)
 
@@ -74,12 +92,16 @@ func New(
 	}
 
 	return &App{
-		cfg:       cfg,
-		server:    server,
-		db:        pgPool,
-		scheduler: monitorFetcher,
+		cfg:    cfg,
+		server: server,
+		db:     pgPool,
+		schedulers: []Scheduler{
+			monitorFetcher,
+			eventFetcher,
+		},
 		runners: []Runner{
 			monitorDispatcher,
+			eventDispatcher,
 		},
 	}, nil
 }
@@ -91,9 +113,12 @@ func (a *App) Run() error {
 
 	g, ctx := errgroup.WithContext(rootCtx)
 
-	g.Go(func() error {
-		return a.scheduler.Run(ctx)
-	})
+	for _, scheduler := range a.schedulers {
+		r := scheduler
+		g.Go(func() error {
+			return r.Run(ctx)
+		})
+	}
 
 	for _, runner := range a.runners {
 		r := runner
